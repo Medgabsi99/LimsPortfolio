@@ -1,0 +1,22 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Lims.RestApi</RootNamespace>
+    <Description>LIMS REST API (ASP.NET Core Web API, Swagger documented)</Description>
+    <UserSecretsId>f0cc3151-7b46-4214-82aa-a227f5f6aa89</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.0" />
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Lims.Core\Lims.Core.csproj" />
+    <ProjectReference Include="..\Lims.Infrastructure\Lims.Infrastructure.csproj" />
+  </ItemGroup>
+
+</Project>

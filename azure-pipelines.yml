@@ -1,0 +1,284 @@
+# ============================================================================
+# Azure DevOps CI pipeline - LIMS solution
+# Build -> Unit tests -> Publish artifacts
+# ============================================================================
+
+trigger:
+  branches:
+    include:
+      - main
+      - develop
+
+pr:
+  branches:
+    include:
+      - main
+      - develop
+
+pool:
+  vmImage: 'windows-latest'   # Windows agent: matches the .NET + SQL Server stack
+
+variables:
+  buildConfiguration: 'Release'
+  solution: 'LimsPortfolio.sln'
+
+stages:
+  # ---------------------------------------------------------------------------
+  - stage: Build
+    displayName: 'Build & Test'
+    jobs:
+      - job: BuildAndTest
+        displayName: 'Restore, build, test'
+        steps:
+          - task: UseDotNet@2
+            displayName: 'Install .NET 10 SDK'
+            inputs:
+              version: '10.0.x'
+
+          - task: DotNetCoreCLI@2
+            displayName: 'Restore NuGet packages'
+            inputs:
+              command: 'restore'
+              projects: '$(solution)'
+
+          - task: DotNetCoreCLI@2
+            displayName: 'Build solution'
+            inputs:
+              command: 'build'
+              projects: '$(solution)'
+              arguments: '--configuration $(buildConfiguration) --no-restore'
+
+          # The built-in "Code Coverage" collector (VSTest, Windows agents)
+          # publishes coverage directly to the Code Coverage tab -
+          # no deprecated PublishCodeCoverageResults task required.
+          - task: DotNetCoreCLI@2
+            displayName: 'Run unit tests'
+            inputs:
+              command: 'test'
+              projects: 'tests/Lims.Tests/Lims.Tests.csproj'
+              publishTestResults: true
+              arguments: '--configuration $(buildConfiguration) --no-build --collect:"Code Coverage" --logger trx'
+
+          - task: DotNetCoreCLI@2
+            displayName: 'Publish REST API artifact'
+            inputs:
+              command: 'publish'
+              publishWebProjects: false
+              projects: 'src/Lims.RestApi/Lims.RestApi.csproj'
+              arguments: '--configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory)/restapi'
+              zipAfterPublish: true
+
+          - task: DotNetCoreCLI@2
+            displayName: 'Publish SOAP service artifact'
+            inputs:
+              command: 'publish'
+              publishWebProjects: false
+              projects: 'src/Lims.SoapService/Lims.SoapService.csproj'
+              arguments: '--configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory)/soap'
+              zipAfterPublish: true
+
+          - task: DotNetCoreCLI@2
+            displayName: 'Publish Windows Service artifact'
+            inputs:
+              command: 'publish'
+              publishWebProjects: false
+              projects: 'src/Lims.WindowsService/Lims.WindowsService.csproj'
+              arguments: '--configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory)/winservice'
+              zipAfterPublish: true
+
+          - task: PublishBuildArtifacts@1
+            displayName: 'Publish artifacts'
+            condition: succeeded()
+            inputs:
+              PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+              ArtifactName: 'lims-drop'
+
+  # ---------------------------------------------------------------------------
+  # Deploy stage: runs SQL migrations then deploys all three artifacts.
+  # Requires two Azure DevOps Environments:
+  #   "LIMS-DEV"  — no approval gate (auto-deploys on every green build of main/develop)
+  #   "LIMS-PROD" — requires manual approval from a designated reviewer before deploy
+  #
+  # Variable groups (Azure DevOps Library):
+  #   lims-dev-vars  : DB_SERVER, DB_NAME, DB_USER, DB_PASS, IIS_SITE_RESTAPI,
+  #                    IIS_SITE_SOAP, WIN_SVC_NAME, DEPLOY_PATH_RESTAPI,
+  #                    DEPLOY_PATH_SOAP, DEPLOY_PATH_WINSVC
+  #   lims-prod-vars : same keys, production values
+  # ---------------------------------------------------------------------------
+  - stage: Deploy_Dev
+    displayName: 'Deploy → DEV'
+    dependsOn: Build
+    condition: succeeded()
+    variables:
+      - group: lims-dev-vars
+    jobs:
+      - deployment: DeployToDevEnv
+        displayName: 'Deploy all services to DEV'
+        environment: 'LIMS-DEV'
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                # ── 1. Database migrations ──────────────────────────────────
+                - task: SqlAzureDacpacDeployment@1
+                  displayName: 'SQL: Create tables (01)'
+                  inputs:
+                    AuthenticationType: 'server'
+                    ServerName:  '$(DB_SERVER)'
+                    DatabaseName: '$(DB_NAME)'
+                    SqlUsername:  '$(DB_USER)'
+                    SqlPassword:  '$(DB_PASS)'
+                    deployType:   'SqlTask'
+                    SqlFile:      '$(Pipeline.Workspace)/lims-drop/database/01_tables.sql'
+
+                - task: SqlAzureDacpacDeployment@1
+                  displayName: 'SQL: Create views (02)'
+                  inputs:
+                    AuthenticationType: 'server'
+                    ServerName:  '$(DB_SERVER)'
+                    DatabaseName: '$(DB_NAME)'
+                    SqlUsername:  '$(DB_USER)'
+                    SqlPassword:  '$(DB_PASS)'
+                    deployType:   'SqlTask'
+                    SqlFile:      '$(Pipeline.Workspace)/lims-drop/database/02_views.sql'
+
+                - task: SqlAzureDacpacDeployment@1
+                  displayName: 'SQL: Deploy stored procedures (03)'
+                  inputs:
+                    AuthenticationType: 'server'
+                    ServerName:  '$(DB_SERVER)'
+                    DatabaseName: '$(DB_NAME)'
+                    SqlUsername:  '$(DB_USER)'
+                    SqlPassword:  '$(DB_PASS)'
+                    deployType:   'SqlTask'
+                    SqlFile:      '$(Pipeline.Workspace)/lims-drop/database/03_stored_procedures.sql'
+
+                - task: SqlAzureDacpacDeployment@1
+                  displayName: 'SQL: Token revocation table (05)'
+                  inputs:
+                    AuthenticationType: 'server'
+                    ServerName:  '$(DB_SERVER)'
+                    DatabaseName: '$(DB_NAME)'
+                    SqlUsername:  '$(DB_USER)'
+                    SqlPassword:  '$(DB_PASS)'
+                    deployType:   'SqlTask'
+                    SqlFile:      '$(Pipeline.Workspace)/lims-drop/database/05_token_revocation.sql'
+
+                # ── 2. REST API ─────────────────────────────────────────────
+                - task: IISWebAppDeploymentOnMachineGroup@0
+                  displayName: 'Deploy REST API to IIS'
+                  inputs:
+                    WebSiteName:    '$(IIS_SITE_RESTAPI)'
+                    Package:        '$(Pipeline.Workspace)/lims-drop/restapi/*.zip'
+                    TakeAppOfflineFlag: true
+                    XmlVariableSubstitution: true
+
+                # ── 3. SOAP Service ─────────────────────────────────────────
+                - task: IISWebAppDeploymentOnMachineGroup@0
+                  displayName: 'Deploy SOAP Service to IIS'
+                  inputs:
+                    WebSiteName:    '$(IIS_SITE_SOAP)'
+                    Package:        '$(Pipeline.Workspace)/lims-drop/soap/*.zip'
+                    TakeAppOfflineFlag: true
+
+                # ── 4. Windows Service ──────────────────────────────────────
+                - task: PowerShell@2
+                  displayName: 'Stop Windows Service before deploy'
+                  inputs:
+                    targetType: inline
+                    script: |
+                      $svc = "$(WIN_SVC_NAME)"
+                      if ((Get-Service $svc -ErrorAction SilentlyContinue).Status -eq 'Running') {
+                        Stop-Service $svc -Force
+                        Start-Sleep -Seconds 3
+                      }
+
+                - task: ExtractFiles@1
+                  displayName: 'Extract Windows Service artifact'
+                  inputs:
+                    archiveFilePatterns: '$(Pipeline.Workspace)/lims-drop/winservice/*.zip'
+                    destinationFolder:   '$(DEPLOY_PATH_WINSVC)'
+                    cleanDestinationFolder: true
+
+                - task: PowerShell@2
+                  displayName: 'Start Windows Service after deploy'
+                  inputs:
+                    targetType: inline
+                    script: Start-Service "$(WIN_SVC_NAME)"
+
+  # ---------------------------------------------------------------------------
+  - stage: Deploy_Prod
+    displayName: 'Deploy → PROD'
+    dependsOn: Deploy_Dev
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+    variables:
+      - group: lims-prod-vars
+    jobs:
+      - deployment: DeployToProdEnv
+        displayName: 'Deploy all services to PROD (with approval)'
+        environment: 'LIMS-PROD'    # configure required reviewers on this environment
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - task: SqlAzureDacpacDeployment@1
+                  displayName: 'SQL: Tables'
+                  inputs:
+                    AuthenticationType: 'server'
+                    ServerName: '$(DB_SERVER)' DatabaseName: '$(DB_NAME)'
+                    SqlUsername: '$(DB_USER)' SqlPassword: '$(DB_PASS)'
+                    deployType: 'SqlTask'
+                    SqlFile: '$(Pipeline.Workspace)/lims-drop/database/01_tables.sql'
+
+                - task: SqlAzureDacpacDeployment@1
+                  displayName: 'SQL: Views'
+                  inputs:
+                    AuthenticationType: 'server'
+                    ServerName: '$(DB_SERVER)' DatabaseName: '$(DB_NAME)'
+                    SqlUsername: '$(DB_USER)' SqlPassword: '$(DB_PASS)'
+                    deployType: 'SqlTask'
+                    SqlFile: '$(Pipeline.Workspace)/lims-drop/database/02_views.sql'
+
+                - task: SqlAzureDacpacDeployment@1
+                  displayName: 'SQL: Stored procedures'
+                  inputs:
+                    AuthenticationType: 'server'
+                    ServerName: '$(DB_SERVER)' DatabaseName: '$(DB_NAME)'
+                    SqlUsername: '$(DB_USER)' SqlPassword: '$(DB_PASS)'
+                    deployType: 'SqlTask'
+                    SqlFile: '$(Pipeline.Workspace)/lims-drop/database/03_stored_procedures.sql'
+
+                - task: SqlAzureDacpacDeployment@1
+                  displayName: 'SQL: Token revocation table'
+                  inputs:
+                    AuthenticationType: 'server'
+                    ServerName: '$(DB_SERVER)' DatabaseName: '$(DB_NAME)'
+                    SqlUsername: '$(DB_USER)' SqlPassword: '$(DB_PASS)'
+                    deployType: 'SqlTask'
+                    SqlFile: '$(Pipeline.Workspace)/lims-drop/database/05_token_revocation.sql'
+
+                - task: IISWebAppDeploymentOnMachineGroup@0
+                  displayName: 'Deploy REST API'
+                  inputs:
+                    WebSiteName: '$(IIS_SITE_RESTAPI)'
+                    Package: '$(Pipeline.Workspace)/lims-drop/restapi/*.zip'
+                    TakeAppOfflineFlag: true
+                    XmlVariableSubstitution: true
+
+                - task: IISWebAppDeploymentOnMachineGroup@0
+                  displayName: 'Deploy SOAP Service'
+                  inputs:
+                    WebSiteName: '$(IIS_SITE_SOAP)'
+                    Package: '$(Pipeline.Workspace)/lims-drop/soap/*.zip'
+                    TakeAppOfflineFlag: true
+
+                - task: PowerShell@2
+                  displayName: 'Stop → deploy → start Windows Service'
+                  inputs:
+                    targetType: inline
+                    script: |
+                      Stop-Service "$(WIN_SVC_NAME)" -Force -ErrorAction SilentlyContinue
+                      Start-Sleep 3
+                      Expand-Archive "$(Pipeline.Workspace)/lims-drop/winservice/*.zip" `
+                        -DestinationPath "$(DEPLOY_PATH_WINSVC)" -Force
+                      Start-Service "$(WIN_SVC_NAME)"

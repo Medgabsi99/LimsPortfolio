@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Report xmlns="http://schemas.microsoft.com/sqlserver/reporting/2016/01/reportdefinition"
+        xmlns:rd="http://schemas.microsoft.com/SQLServer/reporting/reportdesigner">
+  <ReportParameters>
+    <ReportParameter Name="Status">
+      <DataType>String</DataType>
+      <DefaultValue>
+        <Values><Value>REGISTERED</Value></Values>
+      </DefaultValue>
+      <Prompt>Sample status</Prompt>
+      <ValidValues>
+        <ParameterValues>
+          <ParameterValue><Value>REGISTERED</Value><Label>Registered</Label></ParameterValue>
+          <ParameterValue><Value>IN_PROGRESS</Value><Label>In progress</Label></ParameterValue>
+          <ParameterValue><Value>COMPLETED</Value><Label>Completed</Label></ParameterValue>
+          <ParameterValue><Value>VALIDATED</Value><Label>Validated</Label></ParameterValue>
+        </ParameterValues>
+      </ValidValues>
+    </ReportParameter>
+  </ReportParameters>
+
+  <DataSources>
+    <DataSource Name="LimsDb">
+      <ConnectionProperties>
+        <DataProvider>SQL</DataProvider>
+        <ConnectString>Data Source=.;Initial Catalog=LimsDb;Integrated Security=SSPI</ConnectString>
+      </ConnectionProperties>
+      <rd:SecurityType>Integrated</rd:SecurityType>
+    </DataSource>
+  </DataSources>
+
+  <DataSets>
+    <DataSet Name="SampleOverview">
+      <Query>
+        <DataSourceName>LimsDb</DataSourceName>
+        <CommandText>SELECT SampleCode, Description, Matrix, Status, ClientName,
+       CollectedAt, TotalTests, CompletedTests, PendingTests,
+       FailedResults, ProgressPercent
+FROM dbo.vw_SampleOverview
+WHERE (@Status IS NULL OR Status = @Status)
+ORDER BY Priority, CollectedAt DESC</CommandText>
+        <QueryParameters>
+          <QueryParameter Name="@Status">
+            <Value>=Parameters!Status.Value</Value>
+          </QueryParameter>
+        </QueryParameters>
+      </Query>
+      <Fields>
+        <Field Name="SampleCode"><DataField>SampleCode</DataField></Field>
+        <Field Name="Description"><DataField>Description</DataField></Field>
+        <Field Name="Matrix"><DataField>Matrix</DataField></Field>
+        <Field Name="Status"><DataField>Status</DataField></Field>
+        <Field Name="ClientName"><DataField>ClientName</DataField></Field>
+        <Field Name="CollectedAt"><DataField>CollectedAt</DataField></Field>
+        <Field Name="TotalTests"><DataField>TotalTests</DataField></Field>
+        <Field Name="CompletedTests"><DataField>CompletedTests</DataField></Field>
+        <Field Name="PendingTests"><DataField>PendingTests</DataField></Field>
+        <Field Name="FailedResults"><DataField>FailedResults</DataField></Field>
+        <Field Name="ProgressPercent"><DataField>ProgressPercent</DataField></Field>
+      </Fields>
+    </DataSet>
+  </DataSets>
+
+  <Body>
+    <ReportItems>
+      <Tablix Name="SampleTable">
+        <TablixBody>
+          <TablixColumns>
+            <TablixColumn><Width>3cm</Width></TablixColumn>
+            <TablixColumn><Width>4cm</Width></TablixColumn>
+            <TablixColumn><Width>3cm</Width></TablixColumn>
+            <TablixColumn><Width>2.5cm</Width></TablixColumn>
+            <TablixColumn><Width>2.5cm</Width></TablixColumn>
+            <TablixColumn><Width>2.5cm</Width></TablixColumn>
+          </TablixColumns>
+          <TablixRows>
+            <TablixRow>
+              <Height>0.8cm</Height>
+              <TablixCells>
+                <TablixCell><CellContents><Textbox Name="HdrCode"><CanGrow>true</CanGrow><KeepTogether>true</KeepTogether><Paragraphs><Paragraph><TextRuns><TextRun><Value>Sample Code</Value><Style><FontWeight>Bold</FontWeight><Color>White</Color></Style></TextRun></TextRuns><Style/></Paragraph></Paragraphs><Style><BackgroundColor>#1F4E79</BackgroundColor><PaddingLeft>2pt</PaddingLeft><PaddingTop>2pt</PaddingTop><PaddingBottom>2pt</PaddingBottom></Style></Textbox></CellContents></TablixCell>
+                <TablixCell><CellContents><Textbox Name="HdrClient"><CanGrow>true</CanGrow><KeepTogether>true</KeepTogether><Paragraphs><Paragraph><TextRuns><TextRun><Value>Client</Value><Style><FontWeight>Bold</FontWeight><Color>White</Color></Style></TextRun></TextRuns><Style/></Paragraph></Paragraphs><Style><BackgroundColor>#1F4E79</BackgroundColor><PaddingLeft>2pt</PaddingLeft><PaddingTop>2pt</PaddingTop><PaddingBottom>2pt</PaddingBottom></Style></Textbox></CellContents></TablixCell>
+                <TablixCell><CellContents><Textbox Name="HdrStatus"><CanGrow>true</CanGrow><KeepTogether>true</KeepTogether><Paragraphs><Paragraph><TextRuns><TextRun><Value>Status</Value><Style><FontWeight>Bold</FontWeight><Color>White</Color></Style></TextRun></TextRuns><Style/></Paragraph></Paragraphs><Style><BackgroundColor>#1F4E79</BackgroundColor><PaddingLeft>2pt</PaddingLeft><PaddingTop>2pt</PaddingTop><PaddingBottom>2pt</PaddingBottom></Style></Textbox></CellContents></TablixCell>
+                <TablixCell><CellContents><Textbox Name="HdrTests"><CanGrow>true</CanGrow><KeepTogether>true</KeepTogether><Paragraphs><Paragraph><TextRuns><TextRun><Value>Tests done</Value><Style><FontWeight>Bold</FontWeight><Color>White</Color></Style></TextRun></TextRuns><Style/></Paragraph></Paragraphs><Style><BackgroundColor>#1F4E79</BackgroundColor><PaddingLeft>2pt</PaddingLeft><PaddingTop>2pt</PaddingTop><PaddingBottom>2pt</PaddingBottom></Style></Textbox></CellContents></TablixCell>
+                <TablixCell><CellContents><Textbox Name="HdrFailed"><CanGrow>true</CanGrow><KeepTogether>true</KeepTogether><Paragraphs><Paragraph><TextRuns><TextRun><Value>Failed</Value><Style><FontWeight>Bold</FontWeight><Color>White</Color></Style></TextRun></TextRuns><Style/></Paragraph></Paragraphs><Style><BackgroundColor>#1F4E79</BackgroundColor><PaddingLeft>2pt</PaddingLeft><PaddingTop>2pt</PaddingTop><PaddingBottom>2pt</PaddingBottom></Style></Textbox></CellContents></TablixCell>
+                <TablixCell><CellContents><Textbox Name="HdrProgress"><CanGrow>true</CanGrow><KeepTogether>true</KeepTogether><Paragraphs><Paragraph><TextRuns><TextRun><Value>Progress %</Value><Style><FontWeight>Bold</FontWeight><Color>White</Color></Style></TextRun></TextRuns><Style/></Paragraph></Paragraphs><Style><BackgroundColor>#1F4E79</BackgroundColor><PaddingLeft>2pt</PaddingLeft><PaddingTop>2pt</PaddingTop><PaddingBottom>2pt</PaddingBottom></Style></Textbox></CellContents></TablixCell>
+              </TablixCells>
+            </TablixRow>
+            <TablixRow>
+              <Height>0.6cm</Height>
+              <TablixCells>
+                <TablixCell><CellContents><Textbox Name="Code"><CanGrow>true</CanGrow><KeepTogether>true</KeepTogether><Paragraphs><Paragraph><TextRuns><TextRun><Value>=Fields!SampleCode.Value</Value></TextRun></TextRuns><Style/></Paragraph></Paragraphs><Style><PaddingLeft>2pt</PaddingLeft><PaddingTop>2pt</PaddingTop><PaddingBottom>2pt</PaddingBottom></Style></Textbox></CellContents></TablixCell>
+                <TablixCell><CellContents><Textbox Name="Client"><CanGrow>true</CanGrow><KeepTogether>true</KeepTogether><Paragraphs><Paragraph><TextRuns><TextRun><Value>=Fields!ClientName.Value</Value></TextRun></TextRuns><Style/></Paragraph></Paragraphs><Style><PaddingLeft>2pt</PaddingLeft><PaddingTop>2pt</PaddingTop><PaddingBottom>2pt</PaddingBottom></Style></Textbox></CellContents></TablixCell>
+                <TablixCell><CellContents><Textbox Name="Status"><CanGrow>true</CanGrow><KeepTogether>true</KeepTogether><Paragraphs><Paragraph><TextRuns><TextRun><Value>=Fields!Status.Value</Value></TextRun></TextRuns><Style/></Paragraph></Paragraphs><Style><PaddingLeft>2pt</PaddingLeft><PaddingTop>2pt</PaddingTop><PaddingBottom>2pt</PaddingBottom></Style></Textbox></CellContents></TablixCell>
+                <TablixCell><CellContents><Textbox Name="Tests"><CanGrow>true</CanGrow><KeepTogether>true</KeepTogether><Paragraphs><Paragraph><TextRuns><TextRun><Value>=CStr(Fields!CompletedTests.Value) + " / " + CStr(Fields!TotalTests.Value)</Value></TextRun></TextRuns><Style/></Paragraph></Paragraphs><Style><PaddingLeft>2pt</PaddingLeft><PaddingTop>2pt</PaddingTop><PaddingBottom>2pt</PaddingBottom></Style></Textbox></CellContents></TablixCell>
+                <TablixCell><CellContents><Textbox Name="Failed"><CanGrow>true</CanGrow><KeepTogether>true</KeepTogether><Paragraphs><Paragraph><TextRuns><TextRun><Value>=Fields!FailedResults.Value</Value><Style><Color>=IIF(Fields!FailedResults.Value = 0, "Black", "Red")</Style></TextRun></TextRuns><Style/></Paragraph></Paragraphs><Style><PaddingLeft>2pt</PaddingLeft><PaddingTop>2pt</PaddingTop><PaddingBottom>2pt</PaddingBottom></Style></Textbox></CellContents></TablixCell>
+                <TablixCell><CellContents><Textbox Name="Progress"><CanGrow>true</CanGrow><KeepTogether>true</KeepTogether><Paragraphs><Paragraph><TextRuns><TextRun><Value>=Fields!ProgressPercent.Value</Value><Style><Format>0.0</Format></Style></TextRun></TextRuns><Style/></Paragraph></Paragraphs><Style><PaddingLeft>2pt</PaddingLeft><PaddingTop>2pt</PaddingTop><PaddingBottom>2pt</PaddingBottom></Style></Textbox></CellContents></TablixCell>
+              </TablixCells>
+            </TablixRow>
+          </TablixRows>
+        </TablixBody>
+        <TablixColumnHierarchy><TablixMembers><TablixMember/><TablixMember/><TablixMember/><TablixMember/><TablixMember/><TablixMember/></TablixMembers></TablixColumnHierarchy>
+        <TablixRowHierarchy><TablixMembers><TablixMember/><TablixMember><Group Name="Details"/></TablixMember></TablixMembers></TablixRowHierarchy>
+        <Style/>
+      </Tablix>
+    </ReportItems>
+    <Height>2cm</Height>
+  </Body>
+  <Width>18cm</Width>
+  <Page><PageHeight>29.7cm</PageHeight><PageWidth>21cm</PageWidth></Page>
+  <rd:ReportUnitType>Cm</rd:ReportUnitType>
+</Report>

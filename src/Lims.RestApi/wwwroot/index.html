@@ -1,0 +1,2041 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>LIMS - Laboratory Information Management System</title>
+<meta name="description" content="LIMS: manage laboratory samples, submit analytical results, track instruments and validate findings." />
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+/* =====================================================
+   ROOT LAYOUT CONSTANTS (theme-independent)
+   ===================================================== */
+:root {
+  --sidebar-w: 240px;
+  --header-h:  60px;
+  --radius:    12px;
+  --radius-sm: 8px;
+}
+
+/* =====================================================
+   DESIGN TOKENS
+   ===================================================== */
+[data-theme="dark"] {
+  --bg:           #0a0c14;
+  --surface:      #141728;
+  --surface2:     #1c2038;
+  --surface3:     #232843;
+  --border:       #252a42;
+  --border2:      #2e3450;
+  --accent:       #5b8af7;
+  --accent2:      #8b5cf6;
+  --accent3:      #06b6d4;
+  --good:         #22d3a5;
+  --bad:          #f43f5e;
+  --warn:         #fb923c;
+  --text:         #e8eaf6;
+  --text2:        #a0aabe;
+  --text3:        #606882;
+  --shadow:       0 8px 32px rgba(0,0,0,.55);
+  --shadow-sm:    0 2px 12px rgba(0,0,0,.35);
+  --glass:        rgba(20,23,40,.85);
+  --glass-border: rgba(255,255,255,.07);
+}
+[data-theme="light"] {
+  --bg:           #f0f2fa;
+  --surface:      #ffffff;
+  --surface2:     #f5f6fc;
+  --surface3:     #eceef8;
+  --border:       #dde0ef;
+  --border2:      #c8ccdf;
+  --accent:       #4f7ef5;
+  --accent2:      #7c3aed;
+  --accent3:      #0891b2;
+  --good:         #059669;
+  --bad:          #e11d48;
+  --warn:         #d97706;
+  --text:         #1a1d2e;
+  --text2:        #4b526b;
+  --text3:        #8890aa;
+  --shadow:       0 8px 32px rgba(0,0,0,.12);
+  --shadow-sm:    0 2px 12px rgba(0,0,0,.08);
+  --glass:        rgba(255,255,255,.9);
+  --glass-border: rgba(0,0,0,.06);
+}
+
+/* =====================================================
+   RESET & BASE
+   ===================================================== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 14px; }
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  overflow-x: hidden;
+  transition: background .3s, color .3s;
+}
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+/* =====================================================
+   SIDEBAR (position: fixed)
+   ===================================================== */
+#sidebar {
+  position: fixed;
+  top: 0; left: 0; bottom: 0;
+  width: var(--sidebar-w);
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  z-index: 300;
+  transition: transform .3s cubic-bezier(.4,0,.2,1), background .3s;
+  box-shadow: 2px 0 20px rgba(0,0,0,.15);
+  overflow: hidden;
+}
+#sidebar.hidden { transform: translateX(calc(-1 * var(--sidebar-w))); }
+
+/* sidebar logo */
+.sb-logo {
+  height: var(--header-h);
+  display: flex; align-items: center; gap: 10px;
+  padding: 0 18px;
+  border-bottom: 1px solid var(--border);
+  background: linear-gradient(135deg, var(--surface2), var(--surface));
+  flex-shrink: 0;
+}
+.sb-logo-icon {
+  width: 30px; height: 30px; border-radius: 8px;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  display: flex; align-items: center; justify-content: center;
+  font-size: .9rem; flex-shrink: 0;
+}
+.sb-logo-text {
+  font-weight: 800; font-size: 1rem;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+}
+
+/* sidebar nav */
+.sb-nav { flex: 1; overflow-y: auto; padding: 8px 0; }
+.sb-section {
+  font-size: .62rem; font-weight: 700; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--text3);
+  padding: 14px 18px 4px;
+}
+.nav-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 18px;
+  font-size: .83rem; font-weight: 500; color: var(--text2);
+  cursor: pointer; position: relative; user-select: none;
+  transition: background .15s, color .15s;
+}
+.nav-item:hover { background: var(--surface2); color: var(--text); }
+.nav-item.active {
+  background: linear-gradient(90deg, rgba(91,138,247,.18), transparent);
+  color: var(--accent); font-weight: 600;
+}
+.nav-item.active::before {
+  content: '';
+  position: absolute; left: 0; top: 5px; bottom: 5px;
+  width: 3px; background: var(--accent); border-radius: 0 2px 2px 0;
+}
+.nav-icon { width: 18px; text-align: center; flex-shrink: 0; font-size: 1rem; }
+
+.sb-footer {
+  border-top: 1px solid var(--border);
+  padding: 6px 0; flex-shrink: 0;
+}
+
+/* =====================================================
+   MAIN AREA (offset by sidebar width)
+   ===================================================== */
+#main {
+  margin-left: var(--sidebar-w);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  transition: margin-left .3s cubic-bezier(.4,0,.2,1);
+}
+#main.full { margin-left: 0; }
+
+/* =====================================================
+   TOP BAR
+   ===================================================== */
+#topbar {
+  height: var(--header-h);
+  background: var(--glass);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--glass-border);
+  display: flex; align-items: center; gap: 10px;
+  padding: 0 22px;
+  position: sticky; top: 0; z-index: 200;
+  flex-shrink: 0;
+}
+#menu-btn {
+  background: none; border: none; color: var(--text2); cursor: pointer;
+  font-size: 1.2rem; padding: 6px 8px; border-radius: 6px;
+  transition: background .15s, color .15s;
+}
+#menu-btn:hover { background: var(--surface2); color: var(--text); }
+#page-title { font-size: .95rem; font-weight: 700; }
+.tb-spacer { flex: 1; }
+.api-pill {
+  font-size: .68rem; font-weight: 700; padding: 3px 10px; border-radius: 20px;
+  background: rgba(34,211,165,.12); color: var(--good);
+  border: 1px solid rgba(34,211,165,.25); transition: all .3s;
+}
+.api-pill.offline { background: rgba(244,63,94,.1); color: var(--bad); border-color: rgba(244,63,94,.2); }
+.api-pill.loading { background: rgba(251,146,60,.1); color: var(--warn); border-color: rgba(251,146,60,.2); }
+#theme-btn {
+  background: var(--surface2); border: 1px solid var(--border);
+  color: var(--text2); cursor: pointer; padding: 6px 10px; border-radius: 8px;
+  font-size: .85rem; transition: all .15s;
+}
+#theme-btn:hover { background: var(--surface3); color: var(--text); }
+
+/* User pill */
+.user-pill {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 20px; padding: 4px 12px 4px 4px;
+  cursor: pointer; position: relative;
+}
+.user-pill:hover { background: var(--surface3); }
+.user-av {
+  width: 28px; height: 28px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  display: flex; align-items: center; justify-content: center;
+  font-size: .68rem; font-weight: 700; color: #fff; flex-shrink: 0;
+}
+.user-name { font-size: .78rem; font-weight: 600; }
+.user-role-tag { font-size: .65rem; color: var(--text3); }
+.user-menu {
+  position: absolute; top: calc(100% + 8px); right: 0;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); box-shadow: var(--shadow);
+  min-width: 176px; z-index: 400; overflow: hidden; display: none;
+}
+.user-menu.open { display: block; animation: fadeIn .15s ease; }
+.um-item {
+  padding: 9px 14px; font-size: .81rem; cursor: pointer;
+  display: flex; align-items: center; gap: 8px; color: var(--text2);
+  transition: background .12s;
+}
+.um-item:hover { background: var(--surface2); color: var(--text); }
+.um-item.danger { color: var(--bad); }
+.um-item.danger:hover { background: rgba(244,63,94,.08); }
+.um-divider { border: none; border-top: 1px solid var(--border); margin: 4px 0; }
+
+/* =====================================================
+   CONTENT & PANELS
+   ===================================================== */
+#content { flex: 1; padding: 24px; }
+.panel { display: none; animation: fadeUp .22s ease; }
+.panel.active { display: block; }
+@keyframes fadeUp   { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
+@keyframes fadeIn   { from { opacity:0; } to { opacity:1; } }
+
+/* =====================================================
+   PAGE HEADER
+   ===================================================== */
+.page-hdr { margin-bottom: 20px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.page-hdr h2 { font-size: 1.2rem; font-weight: 700; }
+.page-hdr p  { font-size: .8rem; color: var(--text3); margin-top: 2px; }
+.page-hdr-actions { margin-left: auto; display: flex; gap: 8px; }
+
+/* =====================================================
+   CARDS
+   ===================================================== */
+.card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 20px;
+  box-shadow: var(--shadow-sm);
+  transition: transform .18s, box-shadow .18s, background .3s;
+  margin-bottom: 18px;
+}
+.card:hover { transform: translateY(-1px); box-shadow: var(--shadow); }
+.card-title {
+  font-size: .85rem; font-weight: 700; color: var(--text);
+  margin-bottom: 16px; padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 8px;
+}
+.card-title .icon { color: var(--accent); }
+
+/* =====================================================
+   STAT CARDS
+   ===================================================== */
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px; margin-bottom: 18px;
+}
+.stat-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 18px;
+  position: relative; overflow: hidden;
+  transition: transform .18s, box-shadow .18s;
+}
+.stat-card:hover { transform: translateY(-2px); box-shadow: var(--shadow); }
+.stat-card::before {
+  content: ''; position: absolute;
+  top: 0; left: 0; right: 0; height: 3px;
+}
+.s-blue::before   { background: linear-gradient(90deg, var(--accent), var(--accent2)); }
+.s-green::before  { background: linear-gradient(90deg, var(--good), var(--accent3)); }
+.s-orange::before { background: linear-gradient(90deg, var(--warn), var(--bad)); }
+.s-cyan::before   { background: linear-gradient(90deg, var(--accent3), var(--accent)); }
+.stat-glow {
+  position: absolute; top: -24px; right: -24px;
+  width: 80px; height: 80px; border-radius: 50%; opacity: .08;
+}
+.s-blue .stat-glow   { background: var(--accent); }
+.s-green .stat-glow  { background: var(--good); }
+.s-orange .stat-glow { background: var(--warn); }
+.s-cyan .stat-glow   { background: var(--accent3); }
+.stat-label { font-size: .68rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--text3); margin-bottom: 8px; }
+.stat-value { font-size: 2rem; font-weight: 800; line-height: 1; }
+.s-blue .stat-value   { color: var(--accent); }
+.s-green .stat-value  { color: var(--good); }
+.s-orange .stat-value { color: var(--warn); }
+.s-cyan .stat-value   { color: var(--accent3); }
+.stat-sub { font-size: .7rem; color: var(--text3); margin-top: 5px; }
+
+/* =====================================================
+   CHARTS
+   ===================================================== */
+.charts-row { display: grid; grid-template-columns: 5fr 7fr; gap: 14px; margin-bottom: 18px; }
+.chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; }
+.chart-label { font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--text3); margin-bottom: 14px; }
+.chart-wrap  { position: relative; height: 200px; }
+
+/* =====================================================
+   TABLE
+   ===================================================== */
+.tbl-wrap { overflow-x: auto; border-radius: var(--radius-sm); border: 1px solid var(--border); }
+table { width: 100%; border-collapse: collapse; font-size: .81rem; }
+thead tr { background: var(--surface2); }
+th { padding: 9px 13px; text-align: left; font-size: .67rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text3); white-space: nowrap; }
+td { padding: 9px 13px; border-top: 1px solid var(--border); vertical-align: middle; }
+tbody tr { cursor: pointer; transition: background .1s; }
+tbody tr:hover { background: rgba(91,138,247,.06); }
+tbody tr.sel   { background: rgba(91,138,247,.13); }
+
+/* =====================================================
+   TOOLBAR
+   ===================================================== */
+.toolbar {
+  display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
+  margin-bottom: 12px;
+}
+.toolbar input, .toolbar select { flex: 1; min-width: 140px; max-width: 260px; }
+.toolbar .grow { flex: 2; min-width: 200px; max-width: 400px; }
+.tb-right { margin-left: auto; display: flex; gap: 8px; }
+
+/* =====================================================
+   PAGINATION
+   ===================================================== */
+.pag-bar {
+  display: flex; justify-content: space-between; align-items: center;
+  padding-top: 10px; font-size: .78rem; color: var(--text3);
+}
+.pag-btns { display: flex; gap: 6px; }
+
+/* =====================================================
+   BADGES
+   ===================================================== */
+.badge {
+  font-size: .63rem; font-weight: 700; padding: 2px 8px; border-radius: 20px;
+  letter-spacing: .04em; text-transform: uppercase; display: inline-block; white-space: nowrap;
+}
+.b-REGISTERED   { background:rgba(91,138,247,.15);  color:#5b8af7; border:1px solid rgba(91,138,247,.3); }
+.b-IN_PROGRESS  { background:rgba(251,146,60,.15);  color:#fb923c; border:1px solid rgba(251,146,60,.3); }
+.b-COMPLETED    { background:rgba(34,211,165,.15);  color:#22d3a5; border:1px solid rgba(34,211,165,.3); }
+.b-VALIDATED    { background:rgba(16,185,129,.2);   color:#10b981; border:1px solid rgba(16,185,129,.35); }
+.b-REJECTED     { background:rgba(244,63,94,.15);   color:#f43f5e; border:1px solid rgba(244,63,94,.3); }
+.b-CANCELLED    { background:rgba(160,170,190,.1);  color:var(--text3); border:1px solid var(--border); }
+.b-PENDING      { background:rgba(139,92,246,.15);  color:#8b5cf6; border:1px solid rgba(139,92,246,.3); }
+.b-default      { background:rgba(160,170,190,.1);  color:var(--text3); border:1px solid var(--border); }
+.b-Analyst      { background:rgba(56,189,248,.12);  color:#38bdf8; border:1px solid rgba(56,189,248,.25); }
+.b-Manager      { background:rgba(139,92,246,.15);  color:#8b5cf6; border:1px solid rgba(139,92,246,.3); }
+.b-active       { background:rgba(34,211,165,.12);  color:var(--good); border:1px solid rgba(34,211,165,.2); }
+.b-inactive     { background:rgba(244,63,94,.1);    color:var(--bad);  border:1px solid rgba(244,63,94,.15); }
+
+/* =====================================================
+   FORMS
+   ===================================================== */
+.form-group { margin-bottom: 14px; }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+label { display: block; font-size: .7rem; font-weight: 700; color: var(--text3); margin-bottom: 5px; text-transform: uppercase; letter-spacing: .03em; }
+input, select, textarea {
+  width: 100%; padding: 8px 11px;
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); color: var(--text);
+  font-family: inherit; font-size: .84rem; outline: none;
+  transition: border-color .15s, box-shadow .15s, background .3s;
+}
+input:focus, select:focus, textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(91,138,247,.15);
+  background: var(--surface3);
+}
+select option { background: var(--surface); color: var(--text); }
+textarea { resize: vertical; min-height: 72px; }
+
+/* =====================================================
+   BUTTONS
+   ===================================================== */
+.btn {
+  padding: 8px 16px; border-radius: var(--radius-sm);
+  font-size: .81rem; font-weight: 600; cursor: pointer;
+  border: none; font-family: inherit;
+  display: inline-flex; align-items: center; gap: 5px;
+  transition: all .15s; white-space: nowrap;
+}
+.btn:active:not(:disabled) { transform: scale(.97); }
+.btn:disabled { opacity: .45; cursor: not-allowed !important; }
+.btn-primary {
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  color: #fff; box-shadow: 0 2px 10px rgba(91,138,247,.3);
+}
+.btn-primary:hover:not(:disabled) { filter: brightness(1.08); box-shadow: 0 4px 18px rgba(91,138,247,.45); }
+.btn-full { width: 100%; justify-content: center; padding: 10px; font-size: .88rem; margin-top: 6px; }
+.btn-secondary { background: var(--surface2); color: var(--text2); border: 1px solid var(--border); }
+.btn-secondary:hover:not(:disabled) { background: var(--surface3); color: var(--text); }
+.btn-danger { background: rgba(244,63,94,.12); color: var(--bad); border: 1px solid rgba(244,63,94,.25); }
+.btn-danger:hover:not(:disabled) { background: rgba(244,63,94,.22); }
+.btn-sm { padding: 5px 10px; font-size: .74rem; border-radius: 6px; }
+.btn-xs { padding: 3px 8px; font-size: .7rem; border-radius: 5px; }
+
+/* =====================================================
+   PROGRESS
+   ===================================================== */
+.prog-wrap { width: 64px; height: 6px; background: var(--surface3); border-radius: 3px; overflow: hidden; display: inline-block; vertical-align: middle; }
+.prog-bar  { height: 100%; border-radius: 3px; transition: width .5s ease; }
+
+/* =====================================================
+   SKELETON / SPINNER
+   ===================================================== */
+@keyframes shimmer { 0%{background-position:-200% 0} 100%{background-position:200% 0} }
+.skeleton {
+  background: linear-gradient(90deg, var(--surface2) 25%, var(--surface3) 50%, var(--surface2) 75%);
+  background-size: 200% 100%; animation: shimmer 1.4s infinite; border-radius: 4px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.spinner {
+  display: inline-block; width: 13px; height: 13px;
+  border: 2px solid rgba(255,255,255,.2); border-top-color: rgba(255,255,255,.8);
+  border-radius: 50%; animation: spin .65s linear infinite; vertical-align: middle;
+}
+[data-theme="light"] .spinner { border-color: rgba(0,0,0,.1); border-top-color: var(--accent); }
+
+/* =====================================================
+   EMPTY STATE
+   ===================================================== */
+.empty {
+  text-align: center; padding: 44px 20px; color: var(--text3);
+}
+.empty svg { display: block; margin: 0 auto 12px; opacity: .22; }
+.empty h3 { font-size: .9rem; font-weight: 600; color: var(--text2); margin-bottom: 4px; }
+.empty p  { font-size: .78rem; }
+
+/* =====================================================
+   TOASTS
+   ===================================================== */
+#toast-box { position: fixed; bottom: 22px; right: 22px; z-index: 9999; display: flex; flex-direction: column; gap: 7px; }
+.toast {
+  display: flex; align-items: center; gap: 9px;
+  padding: 11px 15px; border-radius: var(--radius-sm);
+  font-size: .81rem; font-weight: 500;
+  box-shadow: var(--shadow); min-width: 250px; max-width: 370px;
+  animation: slideRight .22s ease;
+}
+@keyframes slideRight { from { opacity:0; transform:translateX(44px); } }
+.t-ok   { background: rgba(5,150,105,.9);  border: 1px solid rgba(34,211,165,.35); color: #d1fae5; }
+.t-err  { background: rgba(159,18,57,.9);  border: 1px solid rgba(244,63,94,.35);  color: #ffe4e6; }
+.t-info { background: rgba(3,105,161,.9);  border: 1px solid rgba(56,189,248,.35); color: #e0f2fe; }
+.toast span { flex: 1; }
+.toast-x { cursor: pointer; opacity: .7; font-size: 1rem; padding: 0 2px; }
+.toast-x:hover { opacity: 1; }
+
+/* =====================================================
+   MODAL
+   ===================================================== */
+.overlay {
+  position: fixed; inset: 0; z-index: 500;
+  background: rgba(0,0,0,.6); backdrop-filter: blur(5px);
+  display: flex; align-items: center; justify-content: center; padding: 16px;
+  animation: fadeIn .2s ease;
+}
+.overlay.gone { display: none; }
+.modal {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); box-shadow: var(--shadow);
+  width: 100%; max-width: 430px; padding: 26px;
+  animation: popUp .22s cubic-bezier(.34,1.56,.64,1);
+  position: relative;
+}
+@keyframes popUp { from { opacity:0; transform:scale(.9); } }
+.modal-title { font-size: 1.05rem; font-weight: 700; margin-bottom: 4px; }
+.modal-sub   { font-size: .78rem; color: var(--text3); margin-bottom: 18px; }
+
+/* =====================================================
+   META GRID (detail view)
+   ===================================================== */
+.meta-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; margin: 12px 0; }
+.meta-box  { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 9px 11px; }
+.meta-lbl  { font-size: .62rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--text3); }
+.meta-val  { font-size: .88rem; font-weight: 600; margin-top: 2px; }
+.pass { color: var(--good); }
+.fail { color: var(--bad); }
+.muted { font-size: .78rem; color: var(--text3); }
+
+/* =====================================================
+   GRIDS
+   ===================================================== */
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+.grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+
+/* =====================================================
+   LOGIN PAGE
+   ===================================================== */
+#login-page {
+  position: fixed; inset: 0; z-index: 900;
+  background: var(--bg);
+  display: flex; align-items: center; justify-content: center; padding: 20px;
+  transition: background .3s;
+}
+#login-page.gone { display: none; }
+.login-bg { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.blob {
+  position: absolute; border-radius: 50%; filter: blur(80px);
+}
+.blob1 { width: 400px; height: 400px; background: var(--accent);  top: -100px; left: -100px; opacity: .12; }
+.blob2 { width: 300px; height: 300px; background: var(--accent2); bottom: -80px; right: -80px; opacity: .1; }
+.blob3 { width: 220px; height: 220px; background: var(--accent3); top: 50%; left: 50%; transform: translate(-50%,-50%); opacity: .08; }
+.login-card {
+  background: var(--glass);
+  backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border);
+  border-radius: 18px; padding: 32px;
+  width: 100%; max-width: 390px;
+  box-shadow: 0 20px 60px rgba(0,0,0,.4);
+  position: relative; z-index: 1;
+}
+.login-hd { text-align: center; margin-bottom: 24px; }
+.login-icon {
+  width: 52px; height: 52px; border-radius: 14px;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.5rem; margin: 0 auto 10px;
+  box-shadow: 0 8px 24px rgba(91,138,247,.4);
+}
+.login-hd h1 { font-size: 1.35rem; font-weight: 800; }
+.login-hd p  { font-size: .78rem; color: var(--text3); margin-top: 3px; }
+.login-tabs { display: flex; gap: 4px; background: var(--surface2); border-radius: 8px; padding: 4px; margin-bottom: 18px; }
+.l-tab {
+  flex: 1; text-align: center; padding: 6px;
+  border-radius: 6px; font-size: .79rem; font-weight: 600;
+  cursor: pointer; color: var(--text3); transition: all .2s;
+}
+.l-tab.active { background: var(--surface); color: var(--text); box-shadow: var(--shadow-sm); }
+.l-pane { display: none; }
+.l-pane.active { display: block; }
+.login-footer { text-align: center; font-size: .72rem; color: var(--text3); margin-top: 14px; }
+
+/* =====================================================
+   RESPONSIVE
+   ===================================================== */
+@media (max-width: 1200px) {
+  .stat-grid { grid-template-columns: repeat(2, 1fr); }
+  .charts-row { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 1024px) {
+  #sidebar { transform: translateX(calc(-1 * var(--sidebar-w))); }
+  #sidebar.open { transform: translateX(0); }
+  #main { margin-left: 0; }
+  #main.full { margin-left: 0; }
+  .grid2 { grid-template-columns: 1fr; }
+  .grid3 { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 768px) {
+  #content { padding: 14px; }
+  .stat-grid { grid-template-columns: 1fr 1fr; }
+  .charts-row { grid-template-columns: 1fr; }
+  .form-row { grid-template-columns: 1fr; }
+  .toolbar input, .toolbar select { max-width: 100%; }
+  .tb-right { margin-left: 0; width: 100%; }
+}
+@media (max-width: 480px) {
+  .stat-grid { grid-template-columns: 1fr; }
+  .grid3 { grid-template-columns: 1fr; }
+}
+
+/* Mobile sidebar overlay */
+#sb-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,.5); z-index: 250;
+}
+#sb-overlay.show { display: block; }
+</style>
+</head>
+<body>
+
+<!-- ===================================================
+     LOGIN PAGE
+     =================================================== -->
+<div id="login-page">
+  <div class="login-bg">
+    <div class="blob blob1"></div>
+    <div class="blob blob2"></div>
+    <div class="blob blob3"></div>
+  </div>
+  <div class="login-card">
+    <div class="login-hd">
+      <div class="login-icon">&#x1F9EA;</div>
+      <h1>LIMS</h1>
+      <p>Laboratory Information Management System</p>
+    </div>
+    <div class="login-tabs">
+      <div class="l-tab active" id="tab-signin" onclick="switchTab('signin')">Sign In</div>
+      <div class="l-tab" id="tab-request" onclick="switchTab('request')">Request Access</div>
+    </div>
+
+    <!-- Sign In -->
+    <div id="pane-signin" class="l-pane active">
+      <div class="form-group">
+        <label for="l-user">Username</label>
+        <input id="l-user" type="text" autocomplete="username" placeholder="Your username" />
+      </div>
+      <div class="form-group">
+        <label for="l-pass">Password</label>
+        <input id="l-pass" type="password" autocomplete="current-password" placeholder="Your password" />
+      </div>
+      <button class="btn btn-primary btn-full" id="btn-login" onclick="doLogin()">Sign In</button>
+    </div>
+
+    <!-- Request Access -->
+    <div id="pane-request" class="l-pane">
+      <div class="form-group">
+        <label for="ra-name">Full Name</label>
+        <input id="ra-name" type="text" placeholder="Dr. Jane Smith" />
+      </div>
+      <div class="form-group">
+        <label for="ra-email">Email Address</label>
+        <input id="ra-email" type="email" placeholder="j.smith@lab.com" />
+      </div>
+      <div class="form-group">
+        <label for="ra-reason">Reason for Access</label>
+        <textarea id="ra-reason" placeholder="I need access to submit results for..."></textarea>
+      </div>
+      <button class="btn btn-primary btn-full" id="btn-request" onclick="doRequestAccess()">Submit Request</button>
+      <div class="login-footer">Requests are reviewed by a lab manager within 24h.</div>
+    </div>
+  </div>
+</div>
+
+<!-- Mobile sidebar overlay -->
+<div id="sb-overlay" onclick="closeSidebar()"></div>
+
+<!-- ===================================================
+     APP SHELL
+     =================================================== -->
+<nav id="sidebar">
+  <div class="sb-logo">
+    <div class="sb-logo-icon">&#x1F9EA;</div>
+    <span class="sb-logo-text">LIMS</span>
+  </div>
+  <div class="sb-nav">
+    <div class="sb-section">Overview</div>
+    <div class="nav-item active" id="nav-dashboard"   onclick="nav('dashboard')">
+      <span class="nav-icon">&#9675;</span> Dashboard
+    </div>
+    <div class="sb-section">Laboratory</div>
+    <div class="nav-item" id="nav-samples"     onclick="nav('samples')">
+      <span class="nav-icon">&#9636;</span> Samples
+    </div>
+    <div class="nav-item" id="nav-register"    onclick="nav('register')">
+      <span class="nav-icon">+</span> New Sample
+    </div>
+    <div class="nav-item" id="nav-results"     onclick="nav('results')">
+      <span class="nav-icon">&#10003;</span> Submit Result
+    </div>
+    <div class="nav-item" id="nav-instruments" onclick="nav('instruments')">
+      <span class="nav-icon">&#9881;</span> Instruments
+    </div>
+    <div class="sb-section">Administration</div>
+    <div class="nav-item mgr-only" id="nav-users" onclick="nav('users')" style="display:none">
+      <span class="nav-icon">&#9786;</span> Users
+    </div>
+    <div class="nav-item mgr-only" id="nav-audit" onclick="nav('audit')" style="display:none">
+      <span class="nav-icon">&#9741;</span> Audit Log
+    </div>
+    <div class="sb-section">Account</div>
+    <div class="nav-item" id="nav-profile" onclick="nav('profile')">
+      <span class="nav-icon">&#9998;</span> Profile
+    </div>
+  </div>
+  <div class="sb-footer">
+    <div class="nav-item" onclick="doLogout()" style="color:var(--bad)">
+      <span class="nav-icon">&#10140;</span> Sign Out
+    </div>
+  </div>
+</nav>
+
+<div id="main">
+  <!-- Top bar -->
+  <div id="topbar">
+    <button id="menu-btn" onclick="toggleSidebar()" title="Toggle sidebar">&#9776;</button>
+    <span id="page-title">Dashboard</span>
+    <div class="tb-spacer"></div>
+    <span class="api-pill loading" id="api-pill">API: ...</span>
+    <button id="theme-btn" onclick="toggleTheme()" title="Toggle theme">&#9728;</button>
+    <div class="user-pill" onclick="toggleUserMenu()" id="user-pill">
+      <div class="user-av" id="user-av">?</div>
+      <div>
+        <div class="user-name" id="user-nm">--</div>
+        <div class="user-role-tag" id="user-role">--</div>
+      </div>
+      <div class="user-menu" id="user-menu">
+        <div class="um-item" onclick="nav('profile');closeMenu()">&#9998; Change Password</div>
+        <hr class="um-divider" />
+        <div class="um-item danger" onclick="doLogout()">&#10140; Sign Out</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Panels -->
+  <div id="content">
+
+    <!-- ===== DASHBOARD ===== -->
+    <div class="panel active" id="panel-dashboard">
+      <div class="page-hdr">
+        <div><h2>Dashboard</h2><p>Lab overview and key metrics</p></div>
+        <div class="page-hdr-actions">
+          <button class="btn btn-secondary" onclick="loadDashboard()">&#8635; Refresh</button>
+        </div>
+      </div>
+
+      <div class="stat-grid">
+        <div class="stat-card s-blue">
+          <div class="stat-glow"></div>
+          <div class="stat-label">Total Samples</div>
+          <div class="stat-value" id="s-total">--</div>
+          <div class="stat-sub">Registered all time</div>
+        </div>
+        <div class="stat-card s-orange">
+          <div class="stat-glow"></div>
+          <div class="stat-label">In Progress</div>
+          <div class="stat-value" id="s-inprog">--</div>
+          <div class="stat-sub">Being analysed</div>
+        </div>
+        <div class="stat-card s-green">
+          <div class="stat-glow"></div>
+          <div class="stat-label">Validated</div>
+          <div class="stat-value" id="s-validated">--</div>
+          <div class="stat-sub">QC approved</div>
+        </div>
+        <div class="stat-card s-cyan">
+          <div class="stat-glow"></div>
+          <div class="stat-label">Overdue Calibrations</div>
+          <div class="stat-value" id="s-overdue">--</div>
+          <div class="stat-sub">Instruments overdue</div>
+        </div>
+      </div>
+
+      <div class="charts-row">
+        <div class="chart-card">
+          <div class="chart-label">Sample Status Distribution</div>
+          <div class="chart-wrap"><canvas id="chart-donut"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-label">Out-of-spec Tests</div>
+          <div class="chart-wrap"><canvas id="chart-oos"></canvas></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title"><span class="icon">&#9636;</span> Recent Samples</div>
+        <div class="tbl-wrap" id="recent-tbl">
+          <div class="empty"><p>Loading...</p></div>
+        </div>
+      </div>
+
+      <div class="card" id="overdue-card" style="display:none">
+        <div class="card-title" style="color:var(--bad)"><span class="icon">&#9888;</span> Overdue Instrument Calibrations</div>
+        <div class="tbl-wrap" id="overdue-tbl"></div>
+      </div>
+    </div>
+
+    <!-- ===== SAMPLES ===== -->
+    <div class="panel" id="panel-samples">
+      <div class="page-hdr">
+        <div><h2>Sample Register</h2><p>Search and manage laboratory samples</p></div>
+        <div class="page-hdr-actions">
+          <button class="btn btn-secondary btn-sm" onclick="exportCSV()">&#8659; Export CSV</button>
+          <button class="btn btn-primary btn-sm" onclick="nav('register')">+ New Sample</button>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:0">
+        <div class="toolbar">
+          <input id="f-search" class="grow" placeholder="Search code, description, client..."
+                 oninput="currentPage=1;loadSamples()" />
+          <select id="f-status" onchange="currentPage=1;loadSamples()">
+            <option value="">All statuses</option>
+            <option>REGISTERED</option><option>IN_PROGRESS</option>
+            <option>COMPLETED</option><option>VALIDATED</option>
+            <option>REJECTED</option><option>CANCELLED</option>
+          </select>
+          <select id="f-client" onchange="currentPage=1;loadSamples()">
+            <option value="">All clients</option>
+            <option>CLI-001</option><option>CLI-002</option><option>CLI-003</option>
+          </select>
+          <div class="tb-right">
+            <button class="btn btn-secondary" onclick="currentPage=1;loadSamples()">Search</button>
+          </div>
+        </div>
+        <div class="tbl-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Code</th><th>Description</th><th>Client</th><th>Status</th>
+                <th>Priority</th><th>Tests</th><th>Progress</th><th>Failed</th><th>Date</th>
+              </tr>
+            </thead>
+            <tbody id="samples-tbody">
+              <tr><td colspan="9" style="padding:0"><div class="empty"><p>Loading...</p></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="pag-bar">
+          <span id="pag-info"></span>
+          <div class="pag-btns">
+            <button class="btn btn-secondary btn-sm" id="btn-prev" onclick="goPage(-1)" disabled>&laquo; Prev</button>
+            <button class="btn btn-secondary btn-sm" id="btn-next" onclick="goPage(1)"  disabled>Next &raquo;</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sample detail (shown when row clicked) -->
+      <div id="detail-card" class="card" style="display:none;margin-top:18px">
+        <div class="card-title"><span class="icon">&#9432;</span> Sample Detail</div>
+        <div id="detail-body"></div>
+      </div>
+    </div>
+
+    <!-- ===== REGISTER SAMPLE ===== -->
+    <div class="panel" id="panel-register">
+      <div class="page-hdr">
+        <div><h2>Register New Sample</h2><p>Create a new sample entry and assign tests</p></div>
+      </div>
+      <div class="card" style="max-width:560px">
+        <div class="form-row">
+          <div class="form-group">
+            <label for="n-client">Client Code *</label>
+            <input id="n-client" placeholder="CLI-001" />
+          </div>
+          <div class="form-group">
+            <label for="n-priority">Priority *</label>
+            <select id="n-priority">
+              <option value="1">1 - High</option>
+              <option value="2" selected>2 - Normal</option>
+              <option value="3">3 - Low</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="n-desc">Description</label>
+          <input id="n-desc" placeholder="Batch 26-B-201 raw material" />
+        </div>
+        <div class="form-group">
+          <label for="n-matrix">Matrix / Sample Type</label>
+          <input id="n-matrix" placeholder="Water, Raw material, Finished product..." />
+        </div>
+        <div class="form-group">
+          <label for="n-tests">Test Codes * (comma separated)</label>
+          <input id="n-tests" value="PH,ASSAY" placeholder="PH,ASSAY,MOISTURE" />
+        </div>
+        <div style="display:flex;gap:10px;margin-top:4px">
+          <button class="btn btn-secondary" onclick="nav('samples')">Cancel</button>
+          <button class="btn btn-primary" id="btn-register" onclick="doRegister()" style="flex:1">Register Sample</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== SUBMIT RESULT ===== -->
+    <div class="panel" id="panel-results">
+      <div class="page-hdr">
+        <div><h2>Submit Result</h2><p>Record analytical results and manage sample transitions</p></div>
+      </div>
+      <div class="grid2" style="align-items:start">
+        <!-- Submit result -->
+        <div class="card">
+          <div class="card-title"><span class="icon">&#10003;</span> Submit Analytical Result</div>
+          <div class="form-group">
+            <label for="r-sample">Sample Code *</label>
+            <input id="r-sample" placeholder="SMP-2026-00001" />
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="r-test">Test Code *</label>
+              <select id="r-test">
+                <option>PH</option><option>ASSAY</option><option>MOISTURE</option>
+                <option>HEAVY_METALS</option><option>MICRO</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="r-value">Result Value *</label>
+              <input id="r-value" type="number" step="any" placeholder="7.23" />
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="r-instrument">Instrument (optional)</label>
+            <select id="r-instrument"><option value="">(none)</option></select>
+          </div>
+          <div class="form-group">
+            <label for="r-comment">Comment</label>
+            <input id="r-comment" placeholder="Optional analyst note" />
+          </div>
+          <button class="btn btn-primary btn-full" id="btn-submit-result" onclick="doResult()">Submit Result</button>
+        </div>
+
+        <!-- Change status -->
+        <div class="card">
+          <div class="card-title"><span class="icon">&#9881;</span> Change Sample Status</div>
+          <p class="muted" id="status-note" style="margin-bottom:14px">
+            Manual transitions require Manager role. Allowed: REGISTERED&rarr;IN_PROGRESS, IN_PROGRESS&rarr;COMPLETED, COMPLETED&rarr;VALIDATED or REJECTED.
+          </p>
+          <div class="form-group">
+            <label for="s-code">Sample Code *</label>
+            <input id="s-code" placeholder="SMP-2026-00001" />
+          </div>
+          <div class="form-group">
+            <label for="s-status">New Status *</label>
+            <select id="s-status">
+              <option>IN_PROGRESS</option>
+              <option>COMPLETED</option>
+              <option>VALIDATED</option>
+              <option>REJECTED</option>
+              <option>CANCELLED</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="s-comment">Comment / Justification</label>
+            <input id="s-comment" placeholder="e.g. Reviewed by QC manager" />
+          </div>
+          <button class="btn btn-primary btn-full" id="btn-change-status" onclick="doStatus()">Apply Transition</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== INSTRUMENTS ===== -->
+    <div class="panel" id="panel-instruments">
+      <div class="page-hdr">
+        <div><h2>Instruments</h2><p>All lab analysers and their calibration status</p></div>
+        <div class="page-hdr-actions">
+          <button class="btn btn-secondary btn-sm" onclick="loadInstruments()">&#8635; Refresh</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="tbl-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Code</th><th>Name</th><th>Model</th><th>Location</th>
+                <th>Last Calibration</th><th>Next Due</th><th>Period (days)</th><th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="inst-tbody">
+              <tr><td colspan="8"><div class="empty"><p>Loading...</p></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== AUDIT LOG (Manager only) ===== -->
+    <div class="panel" id="panel-audit">
+      <div class="page-hdr">
+        <div><h2>Audit Log</h2><p>Full regulatory audit trail across all subsystems (Manager only)</p></div>
+        <div class="page-hdr-actions">
+          <button class="btn btn-secondary btn-sm" onclick="auditPage=1;loadAudit()">&#8635; Refresh</button>
+        </div>
+      </div>
+      <div class="card" style="margin-bottom:0">
+        <div class="toolbar">
+          <input id="au-search" class="grow" placeholder="Search source, action, reference, message..." oninput="auditPage=1;loadAudit()" />
+          <select id="au-success" onchange="auditPage=1;loadAudit()">
+            <option value="">All outcomes</option>
+            <option value="true">Success only</option>
+            <option value="false">Failures only</option>
+          </select>
+          <input id="au-from" type="date" title="From date" onchange="auditPage=1;loadAudit()" />
+          <input id="au-to"   type="date" title="To date"   onchange="auditPage=1;loadAudit()" />
+          <div class="tb-right">
+            <button class="btn btn-secondary" onclick="auditPage=1;loadAudit()">Search</button>
+          </div>
+        </div>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th>#</th><th>When</th><th>Source</th><th>Action</th><th>Reference</th><th>Result</th><th>Detail</th></tr></thead>
+            <tbody id="audit-tbody">
+              <tr><td colspan="7"><div class="empty"><p>Loading...</p></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="pag-bar">
+          <span id="au-pag-info"></span>
+          <div class="pag-btns">
+            <button class="btn btn-secondary btn-sm" id="btn-au-prev" onclick="goAuditPage(-1)" disabled>&laquo; Prev</button>
+            <button class="btn btn-secondary btn-sm" id="btn-au-next" onclick="goAuditPage(1)"  disabled>Next &raquo;</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== USERS (Manager only) ===== -->
+    <div class="panel" id="panel-users">
+      <div class="page-hdr">
+        <div><h2>User Management</h2><p>Create and manage lab accounts (Manager role required)</p></div>
+      </div>
+      <div class="grid2" style="align-items:start">
+        <div class="card">
+          <div class="card-title"><span class="icon">+</span> Create Account</div>
+          <div class="form-group">
+            <label for="cu-user">Username *</label>
+            <input id="cu-user" placeholder="j.smith" />
+          </div>
+          <div class="form-group">
+            <label for="cu-display">Display Name *</label>
+            <input id="cu-display" placeholder="Dr. Jane Smith" />
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="cu-role">Role *</label>
+              <select id="cu-role">
+                <option value="Analyst">Analyst</option>
+                <option value="Manager">Manager</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="cu-pass">Password *</label>
+              <input id="cu-pass" type="password" placeholder="Min 8 chars" />
+            </div>
+          </div>
+          <button class="btn btn-primary btn-full" id="btn-create-user" onclick="doCreateUser()">Create Account</button>
+        </div>
+        <div class="card">
+          <div class="card-title"><span class="icon">&#9786;</span> All Accounts</div>
+          <div id="users-list"><div class="empty"><p>Loading...</p></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== PROFILE ===== -->
+    <div class="panel" id="panel-profile">
+      <div class="page-hdr">
+        <div><h2>Profile</h2><p>Manage your account and password</p></div>
+      </div>
+      <div class="card" style="max-width:440px">
+        <div class="card-title"><span class="icon">&#128273;</span> Change Password</div>
+        <div class="form-group">
+          <label for="cp-cur">Current Password *</label>
+          <input id="cp-cur" type="password" />
+        </div>
+        <div class="form-group">
+          <label for="cp-new">New Password *</label>
+          <input id="cp-new" type="password" placeholder="Min 8 chars, upper + lower + digit" />
+        </div>
+        <div class="form-group">
+          <label for="cp-cf">Confirm New Password *</label>
+          <input id="cp-cf" type="password" />
+        </div>
+        <button class="btn btn-primary btn-full" id="btn-chpw" onclick="doChangePassword()">Update Password</button>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /main -->
+
+<div id="toast-box"></div>
+
+<!-- Reset PW modal -->
+<div class="overlay gone" id="pw-modal">
+  <div class="modal">
+    <div class="modal-title">Reset Password</div>
+    <div class="modal-sub" id="pw-modal-sub">Set a new password for this user.</div>
+    <input type="hidden" id="pw-uid" />
+    <div class="form-group">
+      <label for="pw-val">New Password *</label>
+      <input id="pw-val" type="password" placeholder="Min 8 chars" />
+    </div>
+    <div style="display:flex;gap:10px;margin-top:6px">
+      <button class="btn btn-secondary" onclick="closePwModal()">Cancel</button>
+      <button class="btn btn-primary" style="flex:1" id="btn-do-reset" onclick="doResetPw()">Reset Password</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ================================================
+   CONSTANTS & STATE
+   ================================================ */
+const PAGE_SIZE   = 20;
+const AUDIT_SIZE  = 50;
+let session       = null;      // AuthTokenResult
+let currentPage   = 1;
+let totalCount    = 0;
+let auditPage     = 1;
+let auditTotal    = 0;
+let chartDonut    = null;
+let chartOos      = null;
+
+/* ================================================
+   THEME
+   ================================================ */
+function initTheme() {
+  const t = localStorage.getItem('lims-theme') || 'dark';
+  document.documentElement.setAttribute('data-theme', t);
+  document.getElementById('theme-btn').textContent = t === 'dark' ? '\u2600' : '\u263D';
+}
+function toggleTheme() {
+  const t = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', t);
+  localStorage.setItem('lims-theme', t);
+  document.getElementById('theme-btn').textContent = t === 'dark' ? '\u2600' : '\u263D';
+  rebuildCharts();
+}
+initTheme();
+
+/* ================================================
+   SIDEBAR
+   ================================================ */
+function toggleSidebar() {
+  const sb = document.getElementById('sidebar');
+  const mn = document.getElementById('main');
+  const ov = document.getElementById('sb-overlay');
+  if (window.innerWidth <= 1024) {
+    const open = sb.classList.toggle('open');
+    ov.classList.toggle('show', open);
+  } else {
+    const hidden = sb.classList.toggle('hidden');
+    mn.classList.toggle('full', hidden);
+  }
+}
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sb-overlay').classList.remove('show');
+}
+window.addEventListener('resize', () => {
+  if (window.innerWidth > 1024) {
+    document.getElementById('sb-overlay').classList.remove('show');
+    document.getElementById('sidebar').classList.remove('open');
+  }
+});
+
+/* ================================================
+   NAVIGATION
+   ================================================ */
+const TITLES = {
+  dashboard:'Dashboard', samples:'Sample Register', register:'New Sample',
+  results:'Submit Result', instruments:'Instruments',
+  audit:'Audit Log', users:'User Management', profile:'Profile'
+};
+function nav(name) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  const p = document.getElementById('panel-' + name);
+  if (p) p.classList.add('active');
+  const n = document.getElementById('nav-' + name);
+  if (n) n.classList.add('active');
+  document.getElementById('page-title').textContent = TITLES[name] || name;
+  if (window.innerWidth <= 1024) closeSidebar();
+  // lazy-load data
+  if (name === 'dashboard')   loadDashboard();
+  if (name === 'samples')     loadSamples();
+  if (name === 'instruments') loadInstruments();
+  if (name === 'audit')       { auditPage=1; loadAudit(); }
+  if (name === 'users')       loadUsers();
+}
+
+/* ================================================
+   USER MENU
+   ================================================ */
+function toggleUserMenu() { document.getElementById('user-menu').classList.toggle('open'); }
+function closeMenu()       { document.getElementById('user-menu').classList.remove('open'); }
+document.addEventListener('click', e => {
+  if (!document.getElementById('user-pill').contains(e.target)) closeMenu();
+});
+
+/* ================================================
+   LOGIN TABS
+   ================================================ */
+function switchTab(t) {
+  document.getElementById('tab-signin').classList.toggle('active', t === 'signin');
+  document.getElementById('tab-request').classList.toggle('active', t === 'request');
+  document.getElementById('pane-signin').classList.toggle('active', t === 'signin');
+  document.getElementById('pane-request').classList.toggle('active', t === 'request');
+}
+
+/* ================================================
+   SESSION
+   ================================================ */
+function setSession(s) {
+  session = s;
+  // Persist to localStorage so refresh doesn't sign the user out
+  if (s) {
+    try { localStorage.setItem('lims-session', JSON.stringify(s)); } catch {}
+  } else {
+    try { localStorage.removeItem('lims-session'); } catch {}
+  }
+
+  const loggedIn = !!s;
+  document.getElementById('login-page').classList.toggle('gone', loggedIn);
+  document.getElementById('main').style.display    = loggedIn ? '' : 'none';
+  document.getElementById('sidebar').style.display = loggedIn ? '' : 'none';
+
+  if (s) {
+    const isMgr = s.role === 'Manager';
+    const initials = (s.displayName || s.username || '?').substring(0, 2).toUpperCase();
+    document.getElementById('user-av').textContent    = initials;
+    document.getElementById('user-nm').textContent    = s.displayName || s.username;
+    document.getElementById('user-role').textContent  = s.role;
+    // manager-only items
+    document.querySelectorAll('.mgr-only').forEach(el => el.style.display = isMgr ? '' : 'none');
+    document.getElementById('btn-change-status').disabled = !isMgr;
+    document.getElementById('status-note').textContent = isMgr
+      ? 'Allowed transitions: REGISTERED\u2192IN_PROGRESS, IN_PROGRESS\u2192COMPLETED, COMPLETED\u2192VALIDATED or REJECTED.'
+      : 'Manager role required for manual status transitions.';
+    // load clients into all dropdowns
+    loadClients();
+    nav('dashboard');
+  }
+}
+
+/* ================================================
+   API HELPER
+   ================================================ */
+async function api(method, url, body) {
+  const headers = { 'Content-Type': 'application/json' };
+  if (session?.token) headers['Authorization'] = 'Bearer ' + session.token;
+  const res = await fetch(url, {
+    method,
+    headers,
+    body: body !== undefined ? JSON.stringify(body) : undefined
+  });
+  if (res.status === 401) { setSession(null); throw { error: 'Session expired - please sign in again.' }; }
+  const ct = res.headers.get('content-type') || '';
+  const data = ct.includes('json') ? await res.json().catch(() => ({})) : {};
+  if (!res.ok) throw data;
+  return data;
+}
+
+/* ================================================
+   TOAST
+   ================================================ */
+function toast(msg, type = 'info') {
+  const icons = { ok: '&#10004;', err: '&#10008;', info: '&#9432;' };
+  const cls   = { ok: 't-ok', err: 't-err', info: 't-info' };
+  const el = document.createElement('div');
+  el.className = `toast ${cls[type] || 't-info'}`;
+  el.innerHTML = `<span>${icons[type] || ''}</span><span>${msg}</span><span class="toast-x" onclick="this.parentElement.remove()">&times;</span>`;
+  document.getElementById('toast-box').appendChild(el);
+  setTimeout(() => { try { el.remove(); } catch {} }, 5000);
+}
+
+/* ================================================
+   BUSY BUTTON
+   ================================================ */
+function busy(btn, on) {
+  btn.disabled = on;
+  if (on) { btn._t = btn.innerHTML; btn.innerHTML = '<span class="spinner"></span> Working...'; }
+  else     { btn.innerHTML = btn._t || btn.innerHTML; }
+}
+
+/* ================================================
+   HEALTH CHECK
+   ================================================ */
+async function checkHealth() {
+  const pill = document.getElementById('api-pill');
+  try {
+    const r = await fetch('/health');
+    if (r.ok) { pill.textContent = 'API: online'; pill.className = 'api-pill'; }
+    else       { pill.textContent = 'API: error';  pill.className = 'api-pill offline'; }
+  } catch {
+    pill.textContent = 'API: offline'; pill.className = 'api-pill offline';
+  }
+}
+
+/* ================================================
+   LOGIN
+   ================================================ */
+async function doLogin() {
+  const btn = document.getElementById('btn-login');
+  busy(btn, true);
+  try {
+    const d = await api('POST', '/api/auth/login', {
+      username: document.getElementById('l-user').value.trim(),
+      password: document.getElementById('l-pass').value
+    });
+    // d = AuthTokenResult: { token, username, displayName, role, expiresAtUtc }
+    setSession(d);
+    toast('Welcome, ' + (d.displayName || d.username) + '!', 'ok');
+  } catch(e) {
+    toast(e.error ?? e.detail ?? 'Sign-in failed', 'err');
+  } finally { busy(btn, false); }
+}
+document.getElementById('l-pass').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+
+/* ================================================
+   REQUEST ACCESS
+   ================================================ */
+async function doRequestAccess() {
+  const btn = document.getElementById('btn-request');
+  busy(btn, true);
+  try {
+    const r = await api('POST', '/api/auth/request-access', {
+      fullName: document.getElementById('ra-name').value.trim(),
+      email:    document.getElementById('ra-email').value.trim(),
+      reason:   document.getElementById('ra-reason').value.trim()
+    });
+    toast(r.message || 'Request submitted! A manager will review it.', 'ok');
+    ['ra-name','ra-email','ra-reason'].forEach(id => document.getElementById(id).value = '');
+    switchTab('signin');
+  } catch(e) {
+    toast(e.error ?? 'Could not submit request', 'err');
+  } finally { busy(btn, false); }
+}
+
+/* ================================================
+   LOGOUT
+   ================================================ */
+async function doLogout() {
+  try { await api('POST', '/api/auth/logout'); } catch {}
+  setSession(null);
+}
+
+/* ================================================
+   DASHBOARD  (GET /api/dashboard)
+   ================================================ */
+async function loadDashboard() {
+  checkHealth();
+  try {
+    const d = await api('GET', '/api/dashboard');
+    // d = DashboardStats { samplesByStatus: [{status,sampleCount}], overdueCalibrations: [Instrument], outOfSpecTests: [{testCode,testName,outOfSpecCount}] }
+
+    const byStatus = {};
+    let total = 0;
+    (d.samplesByStatus || []).forEach(s => {
+      byStatus[s.status] = s.sampleCount;
+      total += s.sampleCount;
+    });
+    countUp('s-total',     total);
+    countUp('s-inprog',    byStatus['IN_PROGRESS'] || 0);
+    countUp('s-validated', byStatus['VALIDATED']   || 0);
+
+    const overdue = (d.overdueCalibrations || []).length;
+    countUp('s-overdue', overdue);
+
+    // Status donut chart
+    buildDonut(d.samplesByStatus || []);
+
+    // Out-of-spec bar chart
+    buildOosChart(d.outOfSpecTests || []);
+
+    // Overdue instruments card on dashboard
+    const overdueList = d.overdueCalibrations || [];
+    const oc = document.getElementById('overdue-card');
+    if (overdueList.length > 0) {
+      oc.style.display = '';
+      document.getElementById('overdue-tbl').innerHTML = `<table>
+        <thead><tr><th>Code</th><th>Name</th><th>Model</th><th>Location</th><th>Last Cal.</th><th>Next Due</th><th>Period (d)</th><th>Status</th></tr></thead>
+        <tbody>${overdueList.map(i => `<tr>
+          <td><code style="color:var(--accent)">${i.instrumentCode}</code></td>
+          <td>${i.instrumentName}</td>
+          <td>${i.model || '-'}</td>
+          <td>${i.location || '-'}</td>
+          <td>${i.lastCalibrationAt ? fmt(i.lastCalibrationAt) : '-'}</td>
+          <td class="fail">${i.nextCalibrationDue ? fmt(i.nextCalibrationDue) : '-'}</td>
+          <td style="text-align:center">${i.calibrationPeriodDays}</td>
+          <td><span class="fail" style="font-weight:600">[!] OVERDUE</span></td>
+        </tr>`).join('')}</tbody>
+      </table>`;
+    } else {
+      oc.style.display = 'none';
+    }
+
+    // Recent samples (from a quick search)
+    loadRecentSamples();
+  } catch(e) {
+    toast('Dashboard load failed: ' + (e.error ?? e.message ?? 'error'), 'err');
+  }
+}
+
+async function loadRecentSamples() {
+  const wrap = document.getElementById('recent-tbl');
+  wrap.innerHTML = '<div class="empty"><p>Loading...</p></div>';
+  try {
+    // GET /api/samples?page=1&pageSize=8
+    const r = await api('GET', '/api/samples?page=1&pageSize=8');
+    const items = r.items || [];
+    if (!items.length) {
+      wrap.innerHTML = '<div class="empty"><p>No samples yet.</p></div>';
+      return;
+    }
+    wrap.innerHTML = `<table>
+      <thead><tr><th>Code</th><th>Description</th><th>Client</th><th>Status</th><th>Progress</th><th>Date</th></tr></thead>
+      <tbody>${items.map(s => `<tr onclick="nav('samples')" style="cursor:pointer">
+        <td><code style="color:var(--accent)">${s.sampleCode}</code></td>
+        <td>${s.description ?? '-'}</td>
+        <td>${s.clientCode}</td>
+        <td>${badge(s.status)}</td>
+        <td>${progBar(s.progressPercent)}</td>
+        <td style="color:var(--text3)">${fmt(s.createdAt)}</td>
+      </tr>`).join('')}</tbody>
+    </table>`;
+  } catch(e) {
+    wrap.innerHTML = `<div class="empty"><p style="color:var(--bad)">${e.error ?? 'Failed'}</p></div>`;
+  }
+}
+
+function getChartColors() {
+  const d = document.documentElement.getAttribute('data-theme') === 'dark';
+  return {
+    grid:  d ? 'rgba(255,255,255,.05)' : 'rgba(0,0,0,.06)',
+    text:  d ? '#606882' : '#8890aa',
+    bg:    d ? '#141728' : '#ffffff',
+  };
+}
+
+const STATUS_COLORS = {
+  REGISTERED:  '#5b8af7',
+  IN_PROGRESS: '#fb923c',
+  COMPLETED:   '#22d3a5',
+  VALIDATED:   '#10b981',
+  REJECTED:    '#f43f5e',
+  CANCELLED:   '#8890aa',
+};
+
+function buildDonut(statusList) {
+  if (chartDonut) chartDonut.destroy();
+  const { text } = getChartColors();
+  const labels = statusList.map(s => s.status);
+  const data   = statusList.map(s => s.sampleCount);
+  const colors = labels.map(l => STATUS_COLORS[l] || '#8890aa');
+  chartDonut = new Chart(document.getElementById('chart-donut'), {
+    type: 'doughnut',
+    data: { labels, datasets: [{ data, backgroundColor: colors, borderWidth: 2, borderColor: 'transparent' }] },
+    options: {
+      responsive: true, maintainAspectRatio: false, cutout: '62%',
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: { color: text, font: { family: 'Inter', size: 11 }, padding: 10 }
+        }
+      }
+    }
+  });
+}
+
+function buildOosChart(oosList) {
+  if (chartOos) chartOos.destroy();
+  const { grid, text } = getChartColors();
+  if (!oosList.length) {
+    const ctx = document.getElementById('chart-oos').getContext('2d');
+    ctx.clearRect(0, 0, 999, 999);
+    chartOos = null;
+    // show "no OOS" message
+    const wrap = document.getElementById('chart-oos').parentElement;
+    wrap.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text3);font-size:.82rem">No out-of-spec results &#10004;</div>';
+    return;
+  }
+  chartOos = new Chart(document.getElementById('chart-oos'), {
+    type: 'bar',
+    data: {
+      labels: oosList.map(o => o.testCode),
+      datasets: [{
+        label: 'OOS Count', data: oosList.map(o => o.outOfSpecCount),
+        backgroundColor: 'rgba(244,63,94,.35)', borderColor: '#f43f5e',
+        borderWidth: 2, borderRadius: 4, borderSkipped: false
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { color: grid }, ticks: { color: text, font: { family: 'Inter', size: 11 } } },
+        y: { grid: { color: grid }, ticks: { color: text, font: { family: 'Inter', size: 11 }, stepSize: 1 }, beginAtZero: true }
+      }
+    }
+  });
+}
+
+function rebuildCharts() {
+  if (chartDonut) {
+    const labels = chartDonut.data.labels;
+    const data   = chartDonut.data.datasets[0].data;
+    buildDonut(labels.map((l, i) => ({ status: l, sampleCount: data[i] })));
+  }
+}
+
+/* ================================================
+   SAMPLES  (GET /api/samples)
+   ================================================ */
+async function loadSamples() {
+  const tbody = document.getElementById('samples-tbody');
+  tbody.innerHTML = skelRows(6, 9);
+  document.getElementById('detail-card').style.display = 'none';
+
+  // Correct query params: page, pageSize, searchText, status, clientCode
+  const qs = new URLSearchParams({ page: currentPage, pageSize: PAGE_SIZE });
+  const search = document.getElementById('f-search')?.value?.trim();
+  const status = document.getElementById('f-status')?.value;
+  const client = document.getElementById('f-client')?.value;
+  if (search) qs.set('searchText', search);
+  if (status) qs.set('status', status);
+  if (client) qs.set('clientCode', client);
+
+  try {
+    // Returns PagedResult<Sample>: { items, totalCount, pageNumber, pageSize, totalPages }
+    const r = await api('GET', '/api/samples?' + qs);
+    const items = r.items || [];
+    totalCount  = r.totalCount || 0;
+    const totalPages = r.totalPages || Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+
+    if (!items.length) {
+      tbody.innerHTML = `<tr><td colspan="9">${emptyHtml('No samples found', 'Try adjusting your search or filters.')}</td></tr>`;
+    } else {
+      tbody.innerHTML = items.map(s => `
+        <tr onclick="loadDetail('${s.sampleCode}')" id="row-${s.sampleCode}">
+          <td><code style="color:var(--accent);font-size:.9em">${s.sampleCode}</code></td>
+          <td>${s.description ?? '-'}</td>
+          <td>${s.clientCode}</td>
+          <td>${badge(s.status)}</td>
+          <td style="text-align:center">${priLabel(s.priority)}</td>
+          <td style="text-align:center">${s.totalTests}</td>
+          <td>${progBar(s.progressPercent)}</td>
+          <td style="text-align:center;color:var(--bad)">${s.failedResults > 0 ? s.failedResults : '-'}</td>
+          <td style="color:var(--text3)">${fmt(s.createdAt)}</td>
+        </tr>`).join('');
+    }
+
+    document.getElementById('pag-info').textContent =
+      `Page ${currentPage} of ${totalPages} (${totalCount} sample${totalCount !== 1 ? 's' : ''})`;
+    document.getElementById('btn-prev').disabled = currentPage <= 1;
+    document.getElementById('btn-next').disabled = currentPage >= totalPages;
+  } catch(e) {
+    tbody.innerHTML = `<tr><td colspan="9" style="color:var(--bad);padding:20px;text-align:center">[!] ${e.error ?? 'Failed to load samples'}</td></tr>`;
+  }
+}
+
+function goPage(d) {
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+  currentPage = Math.max(1, Math.min(totalPages, currentPage + d));
+  loadSamples();
+}
+
+/* ================================================
+   SAMPLE DETAIL  (GET /api/samples/{code})
+   ================================================ */
+async function loadDetail(code) {
+  // highlight row
+  document.querySelectorAll('#samples-tbody tr').forEach(r => r.classList.remove('sel'));
+  const row = document.getElementById('row-' + code);
+  if (row) row.classList.add('sel');
+
+  const card = document.getElementById('detail-card');
+  const body = document.getElementById('detail-body');
+  card.style.display = '';
+  body.innerHTML = '<div style="padding:20px;text-align:center"><span class="spinner"></span> Loading...</div>';
+  prefill(code);
+
+  try {
+    const s = await api('GET', '/api/samples/' + code);
+    // s = Sample { sampleCode, description, matrix, status, priority, clientCode, clientName, createdAt, tests: SampleTest[] }
+    const tests = (s.tests || []).map(t => `
+      <tr>
+        <td>${t.testCode}</td>
+        <td>${t.testName || '-'}</td>
+        <td>${t.method || '-'}</td>
+        <td>${badge(t.testStatus)}</td>
+        <td>${t.resultValue != null ? t.resultValue : '-'}
+            ${t.passed === false ? '<span class="fail"> OOS</span>' : t.passed === true ? '<span class="pass"> OK</span>' : ''}</td>
+        <td>${t.unit || '-'}</td>
+        <td style="color:var(--text3)">${t.instrumentCode || '-'}</td>
+        <td style="color:var(--text3)">${fmt(t.measuredAt)}</td>
+      </tr>`).join('');
+
+    body.innerHTML = `
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+        <code style="font-size:1rem;color:var(--accent)">${s.sampleCode}</code>
+        ${badge(s.status)}
+        <span class="muted">- ${s.clientName || s.clientCode}</span>
+        <div style="margin-left:auto;display:flex;gap:6px">
+          <button class="btn btn-secondary btn-xs" onclick="prefill('${s.sampleCode}');nav('results')">Submit Result</button>
+          <button class="btn btn-secondary btn-xs" onclick="prefill('${s.sampleCode}');nav('results')">Change Status</button>
+        </div>
+      </div>
+      <div class="meta-grid">
+        <div class="meta-box"><div class="meta-lbl">Client</div><div class="meta-val">${s.clientCode}</div></div>
+        <div class="meta-box"><div class="meta-lbl">Priority</div><div class="meta-val">${priLabel(s.priority)}</div></div>
+        <div class="meta-box"><div class="meta-lbl">Matrix</div><div class="meta-val">${s.matrix || '-'}</div></div>
+        <div class="meta-box"><div class="meta-lbl">Registered</div><div class="meta-val">${fmt(s.createdAt)}</div></div>
+        <div class="meta-box"><div class="meta-lbl">Tests</div><div class="meta-val">${s.tests?.length || 0}</div></div>
+        <div class="meta-box"><div class="meta-lbl">Completed</div><div class="meta-val">${fmt(s.completedAt)}</div></div>
+      </div>
+      ${tests ? `<div class="tbl-wrap" style="margin-top:10px">
+        <table>
+          <thead><tr><th>Test</th><th>Name</th><th>Method</th><th>Status</th><th>Result</th><th>Unit</th><th>Instrument</th><th>Measured</th></tr></thead>
+          <tbody>${tests}</tbody>
+        </table>
+      </div>` : '<p class="muted" style="margin-top:10px">No test results submitted yet.</p>'}`;
+  } catch(e) {
+    body.innerHTML = `<p style="color:var(--bad);padding:12px">[!] ${e.error ?? 'Failed to load.'}</p>`;
+  }
+}
+
+/* ================================================
+   REGISTER SAMPLE  (POST /api/samples)
+   ================================================ */
+async function doRegister() {
+  const btn = document.getElementById('btn-register');
+  busy(btn, true);
+  try {
+    const r = await api('POST', '/api/samples', {
+      clientCode:  document.getElementById('n-client').value.trim(),
+      description: document.getElementById('n-desc').value.trim() || undefined,
+      matrix:      document.getElementById('n-matrix').value.trim() || undefined,
+      priority:    Number(document.getElementById('n-priority').value),
+      testCodes:   document.getElementById('n-tests').value.split(',').map(t => t.trim()).filter(Boolean)
+    });
+    // r = { sampleCode, sampleId }
+    toast('Sample <b>' + r.sampleCode + '</b> registered successfully!', 'ok');
+    prefill(r.sampleCode);
+    nav('samples');
+    currentPage = 1;
+    loadSamples();
+  } catch(e) {
+    const msg = e.errors?.join(' | ') ?? e.error ?? e.detail ?? 'Registration failed';
+    toast(msg, 'err');
+  } finally { busy(btn, false); }
+}
+
+/* ================================================
+   EXPORT CSV
+   ================================================ */
+async function exportCSV() {
+  try {
+    const r = await api('GET', '/api/samples?page=1&pageSize=200');
+    const items = r.items || [];
+    const hdr = 'Code,Description,Client,Status,Priority,TotalTests,Failed,Progress%,Date\n';
+    const rows = items.map(s =>
+      [s.sampleCode, `"${(s.description||'').replace(/"/g,'""')}"`, s.clientCode,
+       s.status, s.priority, s.totalTests, s.failedResults, s.progressPercent,
+       fmt(s.createdAt)].join(',')
+    ).join('\n');
+    const blob = new Blob([hdr + rows], { type: 'text/csv' });
+    const a = Object.assign(document.createElement('a'), {
+      href: URL.createObjectURL(blob),
+      download: 'lims-samples-' + new Date().toISOString().slice(0,10) + '.csv'
+    });
+    a.click(); URL.revokeObjectURL(a.href);
+    toast('Exported ' + items.length + ' samples to CSV.', 'ok');
+  } catch(e) { toast('Export failed: ' + (e.error || ''), 'err'); }
+}
+
+/* ================================================
+   SUBMIT RESULT  (POST /api/samples/{code}/results)
+   ================================================ */
+async function doResult() {
+  const btn = document.getElementById('btn-submit-result');
+  const code = document.getElementById('r-sample').value.trim();
+  if (!code) { toast('Enter a sample code first.', 'info'); return; }
+  busy(btn, true);
+  try {
+    // Body: ResultSubmission { testCode, resultValue, instrumentCode, comment }
+    // NOTE: SampleCode is set from route (not body); InstrumentCode (not Id)
+    const instSel = document.getElementById('r-instrument');
+    const instCode = instSel.selectedOptions[0]?.dataset?.code || instSel.value || undefined;
+    const r = await api('POST', '/api/samples/' + code + '/results', {
+      testCode:       document.getElementById('r-test').value,
+      resultValue:    Number(document.getElementById('r-value').value),
+      instrumentCode: instCode || undefined,
+      comment:        document.getElementById('r-comment').value.trim() || undefined
+    });
+    // r = ResultSubmissionResult { passed, sampleStatus }
+    const t = r.passed ? 'ok' : 'err';
+    const l = r.passed ? '&#10004; PASS' : '&#10008; Out-of-Spec';
+    toast(`${l} &mdash; sample is now <b>${r.sampleStatus}</b>.`, t);
+    if (currentPage > 0) loadSamples();
+  } catch(e) {
+    const msg = e.errors?.join(' | ') ?? e.error ?? e.detail ?? 'Submission failed';
+    toast(msg, 'err');
+  } finally { busy(btn, false); }
+}
+
+/* ================================================
+   CHANGE STATUS  (PUT /api/samples/{code}/status)
+   ================================================ */
+async function doStatus() {
+  const btn  = document.getElementById('btn-change-status');
+  const code = document.getElementById('s-code').value.trim();
+  if (!code) { toast('Enter a sample code.', 'info'); return; }
+  busy(btn, true);
+  try {
+    // Body: ChangeStatusRequest { newStatus, comment }
+    await api('PUT', '/api/samples/' + code + '/status', {
+      newStatus: document.getElementById('s-status').value,
+      comment:   document.getElementById('s-comment').value.trim() || undefined
+    });
+    toast('Status updated to <b>' + document.getElementById('s-status').value + '</b>.', 'ok');
+    loadSamples();
+  } catch(e) {
+    const msg = e.message ?? e.errors?.join(' | ') ?? e.error ?? e.detail ?? 'Transition failed';
+    toast(msg, 'err');
+  } finally { busy(btn, false); }
+}
+
+/* ================================================
+/* ================================================
+   INSTRUMENTS  (GET /api/instruments)
+   Uses the real endpoint - returns ALL instruments, not just overdue.
+   Also populates the instrument picker in the result submission form.
+   ================================================ */
+async function loadInstruments() {
+  const tbody = document.getElementById('inst-tbody');
+  tbody.innerHTML = skelRows(4, 8);
+  try {
+    // GET /api/instruments -> IReadOnlyList<Instrument>
+    const instruments = await api('GET', '/api/instruments');
+    if (!instruments?.length) {
+      tbody.innerHTML = `<tr><td colspan="8">${emptyHtml('No instruments', 'No instruments are registered in the database.')}</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = instruments.map(i => {
+      const last = i.lastCalibrationAt ? fmt(i.lastCalibrationAt) : '-';
+      const next = i.nextCalibrationDue ? fmt(i.nextCalibrationDue) : '-';
+      return `<tr>
+        <td><code style="color:var(--accent)">${i.instrumentCode}</code></td>
+        <td>${i.instrumentName}</td>
+        <td>${i.model || '-'}</td>
+        <td>${i.location || '-'}</td>
+        <td>${last}</td>
+        <td class="${i.isOverdue ? 'fail' : ''}">${next}</td>
+        <td style="text-align:center">${i.calibrationPeriodDays}</td>
+        <td><span class="${i.isOverdue ? 'fail' : 'pass'}" style="font-weight:600">${i.isOverdue ? '[!] OVERDUE' : 'OK'}</span></td>
+      </tr>`;
+    }).join('');
+  } catch(e) {
+    tbody.innerHTML = `<tr><td colspan="8" style="color:var(--bad);padding:20px;text-align:center">[!] ${e.error ?? 'Failed to load instruments'}</td></tr>`;
+  }
+}
+
+/* ================================================
+   AUDIT LOG  (GET /api/audit - Manager only)
+   ================================================ */
+async function loadAudit() {
+  const tbody = document.getElementById('audit-tbody');
+  if (!tbody) return;
+  tbody.innerHTML = skelRows(5, 7);
+
+  const search  = document.getElementById('au-search')?.value?.trim();
+  const success = document.getElementById('au-success')?.value;
+  const fromD   = document.getElementById('au-from')?.value;
+  const toD     = document.getElementById('au-to')?.value;
+
+  const qs = new URLSearchParams({ page: auditPage, pageSize: AUDIT_SIZE });
+  if (search)  qs.set('searchText', search);
+  if (success !== '') qs.set('isSuccess', success);
+  if (fromD)   qs.set('fromDate', fromD);
+  if (toD)     qs.set('toDate',   toD);
+
+  try {
+    // Returns AuditPagedResult { items:[AuditEntry], totalCount, totalPages }
+    const r = await api('GET', '/api/audit?' + qs);
+    const items = r.items || [];
+    auditTotal = r.totalCount || 0;
+    const totalPages = r.totalPages || 1;
+
+    if (!items.length) {
+      tbody.innerHTML = `<tr><td colspan="7">${emptyHtml('No audit entries', 'Try adjusting your search filters.')}</td></tr>`;
+    } else {
+      tbody.innerHTML = items.map(a => {
+        const ok = a.isSuccess;
+        const badge = ok
+          ? '<span class="badge b-VALIDATED">OK</span>'
+          : '<span class="badge b-REJECTED">FAIL</span>';
+        return `<tr>
+          <td style="color:var(--text3);font-size:.75rem">${a.auditId}</td>
+          <td style="color:var(--text3);white-space:nowrap">${fmtFull(a.loggedAt)}</td>
+          <td><code style="font-size:.78rem">${a.source}</code></td>
+          <td style="font-weight:600">${a.action}</td>
+          <td>${a.entityRef || '-'}</td>
+          <td>${badge}</td>
+          <td style="color:var(--text3);max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${(a.message||'').replace(/"/g,'&quot;')}">${a.message || '-'}</td>
+        </tr>`;
+      }).join('');
+    }
+
+    document.getElementById('au-pag-info').textContent =
+      `Page ${auditPage} of ${totalPages} (${auditTotal} entries)`;
+    document.getElementById('btn-au-prev').disabled = auditPage <= 1;
+    document.getElementById('btn-au-next').disabled = auditPage >= totalPages;
+  } catch(e) {
+    tbody.innerHTML = `<tr><td colspan="7" style="color:var(--bad);padding:20px;text-align:center">[!] ${e.error ?? 'Failed to load audit log'}</td></tr>`;
+  }
+}
+
+function goAuditPage(d) {
+  const totalPages = Math.max(1, Math.ceil(auditTotal / AUDIT_SIZE));
+  auditPage = Math.max(1, Math.min(totalPages, auditPage + d));
+  loadAudit();
+}
+
+function fmtFull(d) {
+  if (!d) return '-';
+  const s = typeof d === 'string' ? d : d.toISOString();
+  return s.slice(0, 16).replace('T', ' ');
+}
+
+/* ================================================
+   CLIENTS  (GET /api/clients - populates dropdowns)
+   ================================================ */
+async function loadClients() {
+  try {
+    const clients = await api('GET', '/api/clients');
+    // Populate the filter in samples table
+    const fClient = document.getElementById('f-client');
+    if (fClient) {
+      fClient.innerHTML = '<option value="">All clients</option>' +
+        clients.map(c => `<option value="${c.clientCode}">${c.clientCode} - ${c.companyName}</option>`).join('');
+    }
+    // Populate the client input in new sample form -> switch to select
+    const nClient = document.getElementById('n-client');
+    if (nClient && clients.length) {
+      const sel = document.createElement('select');
+      sel.id = 'n-client';
+      sel.innerHTML = '<option value="">-- Select client --</option>' +
+        clients.map(c => `<option value="${c.clientCode}">${c.clientCode} - ${c.companyName}</option>`).join('');
+      nClient.replaceWith(sel);
+    }
+    // Populate instrument picker in result form
+    populateInstrumentPicker();
+  } catch { /* silently degrade */ }
+}
+
+async function populateInstrumentPicker() {
+  try {
+    const instruments = await api('GET', '/api/instruments');
+    const sel = document.getElementById('r-instrument');
+    if (!sel) return;
+    sel.innerHTML = '<option value="">(none)</option>' +
+      instruments.map(i =>
+        `<option value="${i.instrumentCode}"${i.isOverdue ? ' style="color:var(--bad)"' : ''}>${i.instrumentCode} - ${i.instrumentName}${i.isOverdue ? ' [OVERDUE]' : ''}</option>`
+      ).join('');
+  } catch { /* instrument picker stays empty */ }
+}
+
+/* ================================================
+   USERS  (GET/POST /api/users - Manager only)
+   ================================================ */
+async function loadUsers() {
+  const list = document.getElementById('users-list');
+  list.innerHTML = '<div class="empty"><p>Loading...</p></div>';
+  try {
+    const users = await api('GET', '/api/users');
+    if (!users?.length) { list.innerHTML = '<div class="empty"><h3>No accounts</h3><p>Use the form to create the first account.</p></div>'; return; }
+    list.innerHTML = users.map(u => `
+      <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)">
+        <div class="user-av" style="width:32px;height:32px;font-size:.72rem;flex-shrink:0">
+          ${(u.username || '?').substring(0,2).toUpperCase()}
+        </div>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:600;font-size:.84rem;overflow:hidden;text-overflow:ellipsis">${u.displayName || u.username}</div>
+          <div style="font-size:.72rem;color:var(--text3)">@${u.username} &bull; since ${fmt(u.createdAt)}</div>
+        </div>
+        <span class="badge b-${u.role}">${u.role}</span>
+        <span class="badge ${u.isActive ? 'b-active' : 'b-inactive'}">${u.isActive ? 'Active' : 'Inactive'}</span>
+        <button class="btn btn-xs btn-secondary" onclick="openPwModal(${u.userId},'${u.username}')">Reset PW</button>
+        <button class="btn btn-xs ${u.isActive ? 'btn-danger' : 'btn-secondary'}"
+                onclick="toggleUser(${u.userId},${!u.isActive},'${u.username}')">
+          ${u.isActive ? 'Deactivate' : 'Activate'}
+        </button>
+      </div>`).join('');
+  } catch(e) {
+    list.innerHTML = `<div class="empty"><p style="color:var(--bad)">${e.error ?? 'Failed to load users'}</p></div>`;
+  }
+}
+
+async function doCreateUser() {
+  const btn = document.getElementById('btn-create-user');
+  busy(btn, true);
+  try {
+    const r = await api('POST', '/api/users', {
+      username:    document.getElementById('cu-user').value.trim(),
+      displayName: document.getElementById('cu-display').value.trim(),
+      role:        document.getElementById('cu-role').value,
+      password:    document.getElementById('cu-pass').value
+    });
+    toast('Account <b>' + r.username + '</b> created.', 'ok');
+    ['cu-user','cu-display','cu-pass'].forEach(id => document.getElementById(id).value = '');
+    loadUsers();
+  } catch(e) {
+    toast(e.message ?? e.errors?.join(' | ') ?? e.error ?? 'Error', 'err');
+  } finally { busy(btn, false); }
+}
+
+async function toggleUser(userId, isActive, username) {
+  try {
+    await api('PUT', '/api/users/' + userId + '/active', { isActive });
+    toast('Account @' + username + (isActive ? ' activated.' : ' deactivated.'), 'ok');
+    loadUsers();
+  } catch(e) { toast(e.message ?? e.error ?? 'Error', 'err'); }
+}
+
+function openPwModal(userId, username) {
+  document.getElementById('pw-uid').value = userId;
+  document.getElementById('pw-modal-sub').textContent = 'Set new password for @' + username;
+  document.getElementById('pw-val').value = '';
+  document.getElementById('pw-modal').classList.remove('gone');
+}
+function closePwModal() { document.getElementById('pw-modal').classList.add('gone'); }
+async function doResetPw() {
+  const btn = document.getElementById('btn-do-reset');
+  busy(btn, true);
+  try {
+    await api('PUT', '/api/users/' + document.getElementById('pw-uid').value + '/password', {
+      newPassword: document.getElementById('pw-val').value
+    });
+    toast('Password reset successfully.', 'ok');
+    closePwModal();
+  } catch(e) { toast(e.errors?.join(' | ') ?? e.error ?? 'Error', 'err'); }
+  finally { busy(btn, false); }
+}
+document.getElementById('pw-modal').addEventListener('click', e => {
+  if (e.target === document.getElementById('pw-modal')) closePwModal();
+});
+
+/* ================================================
+   PROFILE / CHANGE PASSWORD
+   ================================================ */
+async function doChangePassword() {
+  const btn = document.getElementById('btn-chpw');
+  if (document.getElementById('cp-new').value !== document.getElementById('cp-cf').value) {
+    toast('Passwords do not match.', 'err'); return;
+  }
+  busy(btn, true);
+  try {
+    await api('POST', '/api/auth/change-password', {
+      currentPassword: document.getElementById('cp-cur').value,
+      newPassword:     document.getElementById('cp-new').value
+    });
+    toast('Password changed. Signing out...', 'ok');
+    setTimeout(doLogout, 1500);
+  } catch(e) { toast(e.errors?.join(' | ') ?? e.error ?? 'Error', 'err'); }
+  finally { busy(btn, false); }
+}
+
+/* ================================================
+   HELPERS
+   ================================================ */
+function badge(status) {
+  const VALID = ['REGISTERED','IN_PROGRESS','COMPLETED','VALIDATED','REJECTED','CANCELLED','PENDING'];
+  const cls = VALID.includes(status) ? `b-${status}` : 'b-default';
+  return `<span class="badge ${cls}">${status ?? ''}</span>`;
+}
+
+function priLabel(p) {
+  return p === 1 ? '<span style="color:var(--bad);font-weight:600">1-High</span>'
+       : p === 3 ? '<span style="color:var(--text3)">3-Low</span>'
+       : '2-Normal';
+}
+
+function progBar(pct) {
+  const p = pct || 0;
+  const c = p >= 100 ? 'var(--good)' : p > 0 ? 'var(--warn)' : 'var(--accent)';
+  return `<div style="display:flex;align-items:center;gap:6px">
+    <div class="prog-wrap"><div class="prog-bar" style="width:${p}%;background:${c}"></div></div>
+    <small style="color:var(--text3)">${p}%</small>
+  </div>`;
+}
+
+function fmt(d) {
+  if (!d) return '-';
+  const s = typeof d === 'string' ? d : d.toISOString();
+  return s.slice(0, 10);
+}
+
+function emptyHtml(title, sub) {
+  return `<div class="empty">
+    <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
+      <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+    </svg>
+    <h3>${title}</h3><p>${sub}</p></div>`;
+}
+
+function skelRows(rows, cols) {
+  return Array.from({length: rows}, () =>
+    `<tr>${Array.from({length: cols}, (_, i) =>
+      `<td><div class="skeleton" style="height:12px;width:${50+i*8}%"></div></td>`
+    ).join('')}</tr>`
+  ).join('');
+}
+
+function countUp(id, target) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const dur = 600, start = performance.now();
+  function step(now) {
+    const p = Math.min((now - start) / dur, 1);
+    el.textContent = Math.round(target * p);
+    if (p < 1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+
+function prefill(code) {
+  ['r-sample','s-code'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = code;
+  });
+}
+
+/* ================================================
+   INIT
+   ================================================ */
+// Restore session from localStorage (survives page refresh)
+(function restoreSession() {
+  try {
+    const raw = localStorage.getItem('lims-session');
+    if (!raw) return;
+    const saved = JSON.parse(raw);
+    // Check token has not expired (expiresAtUtc is ISO string from the server)
+    if (saved?.token && saved?.expiresAtUtc) {
+      const expiresAt = new Date(saved.expiresAtUtc);
+      if (expiresAt > new Date()) {
+        setSession(saved);   // restores UI, calls loadClients + nav('dashboard')
+        return;
+      }
+    }
+    // Token missing or expired - clear it
+    localStorage.removeItem('lims-session');
+  } catch {}
+  // Show login page if no valid session was restored
+  document.getElementById('main').style.display    = 'none';
+  document.getElementById('sidebar').style.display = 'none';
+})();
+
+checkHealth();
+setInterval(checkHealth, 30000);
+</script>
+</body>
+</html>

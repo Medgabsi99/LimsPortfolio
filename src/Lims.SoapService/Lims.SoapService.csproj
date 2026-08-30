@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Lims.SoapService</RootNamespace>
+    <Description>LIMS SOAP 1.1 web service (interop endpoint for legacy ERP/MES clients)</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Lims.Core\Lims.Core.csproj" />
+    <ProjectReference Include="..\Lims.Infrastructure\Lims.Infrastructure.csproj" />
+  </ItemGroup>
+
+</Project>

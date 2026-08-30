@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk.Worker">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Lims.WindowsService</RootNamespace>
+    <Description>LIMS instrument middleware - Windows Service importing analyser result files</Description>
+    <UserSecretsId>lims-windows-service</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.1" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="8.0.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Lims.Core\Lims.Core.csproj" />
+    <ProjectReference Include="..\Lims.Infrastructure\Lims.Infrastructure.csproj" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,7 @@
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+  <soap:Body>
+    <GetSampleStatus>
+      <sampleCode>SMP-2026-00001</sampleCode>
+    </GetSampleStatus>
+  </soap:Body>
+</soap:Envelope>

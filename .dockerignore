@@ -1,0 +1,12 @@
+bin/
+obj/
+out/
+publish/
+*.log
+*.trx
+.git/
+.github/
+.vs/
+.vscode/
+docs/
+database/*.bak
